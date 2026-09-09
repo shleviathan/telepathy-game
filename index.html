@@ -234,7 +234,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v1.12";
+const APP_VERSION = "v1.14";
 const APP_UPDATED = "2026-09-09";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -419,6 +419,7 @@ let db=null;
 let identity = loadIdentity();
 let roomRef=null, playersCol=null, votesCol=null, customQuestionsCol=null;
 let unsubRoom=null, unsubPlayers=null, unsubVotes=null, unsubCustomQuestions=null;
+let pollTimer=null;
 let roomData=null, playersData=[], votesData=[], customQuestionsData=[];
 let joinError = "";
 let homeTab="create", homeName="", homeCode="", homeAvatar=randomAvatar();
@@ -493,8 +494,12 @@ function renderLobby(isHost){
   const settings = roomData.settings || {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"};
   const enabledCats = new Set(settings.enabledCategories && settings.enabledCategories.length ? settings.enabledCategories : ALL_CATEGORY_IDS);
   const mode = settings.mode || "normal";
-  const canStart = players.length>=2;
   const hostId = players.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.id;
+  const readyCount = players.filter(p=>p.ready).length;
+  const allReady = players.length>0 && players.every(p=>p.ready);
+  const canStart = players.length>=2 && allReady;
+  const me = players.find(p=>p.id===identity.playerId);
+  const myReady = !!(me && me.ready);
   app.innerHTML = `
     <div class="card">
       <div class="badge purple">LOBBY</div>
@@ -504,15 +509,16 @@ function renderLobby(isHost){
         <button class="copybtn" id="copyBtn">複製</button>
       </div>
       <p class="helper">把這串代碼傳給朋友，請他們打開同一頁輸入</p>
-      <label style="margin-top:6px;">玩家（${players.length}）</label>
+      <label style="margin-top:6px;">玩家（${players.length}）· 已準備 ${readyCount}/${players.length}</label>
       <ul class="playerlist">
-        ${players.map(p=>`<li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''} ${p.id===hostId?'<span class="host">HOST</span>':''}</span>${p.id===identity.playerId?`<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`:`<span class="strikes">${p.strikes||0}</span>`}</li>`).join("")}
+        ${players.map(p=>`<li><span class="pname">${p.ready?'✅':'⏳'} ${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''} ${p.id===hostId?'<span class="host">HOST</span>':''}</span>${p.id===identity.playerId?`<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`:`<span class="strikes">${p.strikes||0}</span>`}</li>`).join("")}
       </ul>
       ${lobbyAvatarPickOpen ? `
         <div class="avatargrid" style="margin-top:12px;">
           ${AVATARS.map(a=>`<button class="avatarbtn ${(playersData.find(p=>p.id===identity.playerId)||{}).avatar===a?'on':''}" data-avatar2="${a}">${a}</button>`).join("")}
         </div>
       ` : ``}
+      <button class="btn-secondary" id="readyBtn" style="margin-top:12px;">${myReady?'✅ 已準備（點擊取消）':'我準備好了'}</button>
     </div>
 
     <div class="iconrow">
@@ -523,7 +529,7 @@ function renderLobby(isHost){
 
     ${isHost ? `
       <div class="error">${esc(startError)}</div>
-      <button class="btn-primary" id="startBtn" ${canStart?'':'disabled'}>${canStart?'開始遊戲':'至少需要 2 位玩家'}</button>
+      <button class="btn-primary" id="startBtn" ${canStart?'':'disabled'}>${canStart?'開始遊戲':(players.length<2?'至少需要 2 位玩家':`等待 ${players.length-readyCount} 人準備`)}</button>
     ` : `<p class="helper">等待房主 <b>${esc(players.find(p=>p.id===hostId)?.name||'')}</b> 開始遊戲…</p>`}
     <button class="btn-ghost" id="leaveBtn">離開房間</button>
 
@@ -533,6 +539,7 @@ function renderLobby(isHost){
   `;
   document.getElementById("copyBtn").onclick = ()=>{ navigator.clipboard && navigator.clipboard.writeText(identity.code).catch(()=>{}); };
   document.getElementById("leaveBtn").onclick = doLeave;
+  document.getElementById("readyBtn").onclick = toggleReady;
   const changeAvatarBtn = document.getElementById("changeAvatarBtn");
   if(changeAvatarBtn) changeAvatarBtn.onclick = ()=>{ lobbyAvatarPickOpen = !lobbyAvatarPickOpen; render(); };
   document.querySelectorAll("[data-avatar2]").forEach(b=>{
@@ -1025,7 +1032,7 @@ async function doCreate(){
       phase:"lobby", round:0, settings:{duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"},
       currentQuestion:null, roundEndAt:null, revealLog:[], losers:[], lastQIdx:-1, createdAt: Date.now()
     });
-    await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0 });
+    await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, ready:false });
   }catch(e){ joinError="建立房間失敗，請再試一次"; render(); return; }
   identity = {code, playerId: pid, name};
   saveIdentity(identity);
@@ -1044,7 +1051,7 @@ async function doJoin(){
   const snap = await ref.get().catch(()=>({exists:false}));
   if(!snap.exists){ joinError = "找不到這個房間，確認代碼是否正確"; render(); return; }
   const pid = uid();
-  try{ await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0 }); }
+  try{ await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, ready:false }); }
   catch(e){ joinError="加入房間失敗，請再試一次"; render(); return; }
   identity = {code, playerId: pid, name};
   saveIdentity(identity);
@@ -1067,6 +1074,25 @@ function connectRoom(){
     render();
   }, ()=>{});
   render();
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollRoomOnce, 4000);
+}
+
+// 保底機制：即時監聽偶爾會漏更新（尤其手機網路不穩時），
+// 每幾秒主動抓一次最新房間狀態，避免有人卡在舊畫面看不到別人已經開始遊戲。
+async function pollRoomOnce(){
+  if(!roomRef) return;
+  try{
+    const snap = await roomRef.get();
+    roomData = {exists: snap.exists, ...(snap.data()||{})};
+    render();
+  }catch(e){}
+  if(!playersCol) return;
+  try{
+    const qsnap = await playersCol.get();
+    playersData = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    render();
+  }catch(e){}
 }
 
 function manageVoteSub(phase){
@@ -1097,6 +1123,7 @@ function manageTicking(phase){
 
 function leaveToHome(){
   if(unsubRoom) unsubRoom(); if(unsubPlayers) unsubPlayers(); if(unsubVotes) unsubVotes();
+  if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
   if(tickTimer){ clearInterval(tickTimer); tickTimer=null; }
   clearRevealTimers(); revealAnimRound = null; revealStage = 0;
   unsubRoom=unsubPlayers=unsubVotes=null; roomRef=playersCol=votesCol=null; roomData=null; playersData=[]; votesData=[];
@@ -1117,6 +1144,7 @@ async function updateSettings(patch){
 async function doStartGame(){
   const players = playersData;
   if(players.length<2) return;
+  if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
   const settings = roomData.settings || {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS};
   const {idx, pool} = pickQuestion(roomData.lastQIdx, settings.enabledCategories);
   if(idx<0){ startError = "選取的題目類型目前沒有任何題目，請至少勾選一種類型"; render(); return; }
@@ -1213,8 +1241,15 @@ async function doNextQuestion(){
 
 async function doRematch(){
   try{
-    await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({strikes:0})));
+    await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({strikes:0, ready:false})));
     await roomRef.update({phase:"lobby", round:0, currentQuestion:null, roundEndAt:null, revealLog:[], losers:[]});
+  }catch(e){}
+}
+
+async function toggleReady(){
+  try{
+    const me = playersData.find(p=>p.id===identity.playerId);
+    await playersCol.doc(identity.playerId).update({ready: !(me && me.ready)});
   }catch(e){}
 }
 
