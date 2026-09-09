@@ -240,6 +240,7 @@ const CATEGORIES = [
   {id:"entertainment", label:"娛樂嗜好"},
   {id:"values", label:"個性與價值觀"},
   {id:"fantasy", label:"幻想與假設"},
+  {id:"aboutyou", label:"關於你"},
   {id:"other", label:"其他"}
 ];
 const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.id, c.label]));
@@ -350,6 +351,29 @@ const QUESTIONS = [
 ["你覺得哪個最能代表台灣？",["夜市小吃","便利商店","珍珠奶茶","機車"],"life"],
 ["你選哪個人生座右銘方向？",["活在當下","凡事努力","順其自然","勇敢冒險"],"values"],
 ];
+// 「關於你」題型：{player} 會在出題時被隨機替換成場上其中一位玩家的名字，全場一起猜這個人的答案。
+const TARGETED_QUESTIONS = [
+  ["你認為{player}最討厭做哪件家事？",["洗碗","拖地","倒垃圾","摺衣服"],"aboutyou"],
+  ["你覺得{player}半夜肚子餓最可能吃什麼？",["泡麵","餅乾","水果","什麼都不吃"],"aboutyou"],
+  ["你猜{player}最想立刻擁有的超能力是？",["飛行","隱形","讀心","瞬間移動"],"aboutyou"],
+  ["如果{player}中了樂透，你猜他/她最先做的事？",["環遊世界","買房子","存起來","請大家吃飯"],"aboutyou"],
+  ["你覺得{player}壓力大的時候最可能做什麼？",["大吃一頓","睡覺","滑手機","找人聊天"],"aboutyou"],
+  ["你猜{player}最不擅長的家務是？",["煮飯","洗衣服","整理房間","修東西"],"aboutyou"],
+  ["你認為{player}最有可能因為什麼遲到？",["睡過頭","塞車","找不到東西","出門前又折返"],"aboutyou"],
+  ["你猜{player}週末最想做的事是？",["躺平耍廢","出去玩","運動","加班或唸書"],"aboutyou"],
+  ["你覺得{player}最怕的是？",["蟑螂","鬼片","打針","上台報告"],"aboutyou"],
+  ["你猜{player}的手機桌布最可能是？",["自己的照片","風景","家人朋友","預設桌布"],"aboutyou"],
+  ["你認為{player}最容易因為什麼生氣？",["被放鴿子","東西亂放","講話被打斷","輸遊戲"],"aboutyou"],
+  ["你猜{player}小時候的夢想職業是？",["老師","太空人","明星","忘記了"],"aboutyou"],
+  ["你覺得{player}最常忘記帶的東西是？",["鑰匙","手機","雨傘","錢包或悠遊卡"],"aboutyou"],
+  ["你猜{player}最想學會的才藝是？",["唱歌","畫畫","彈樂器","跳舞"],"aboutyou"],
+  ["你認為{player}遇到困難時最先找誰幫忙？",["家人","朋友","另一半","自己解決"],"aboutyou"],
+  ["你猜{player}如果放假一整週會怎麼安排？",["在家耍廢","出國旅行","學新東西","陪家人朋友"],"aboutyou"],
+  ["你覺得{player}最喜歡的天氣是？",["晴天","下雨天","下雪天","涼爽陰天"],"aboutyou"],
+  ["你猜{player}最捨不得丟掉的東西是？",["舊照片","舊衣服","紀念品","書信卡片"],"aboutyou"],
+  ["你認為{player}最想去的地方是？",["日本","歐洲","美國","東南亞"],"aboutyou"],
+  ["你猜{player}如果突然變有錢，第一件事會？",["犒賞自己","孝親或給家人","拿去投資","低調不改變生活"],"aboutyou"],
+];
 const LETTERS = ["A","B","C","D"];
 
 const LS_KEY = "telepathy_identity_v1";
@@ -360,8 +384,14 @@ function roomCode(){ const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s=""; f
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function getPool(enabledCategories){
   const enabled = enabledCategories && enabledCategories.length ? new Set(enabledCategories) : new Set(ALL_CATEGORY_IDS);
-  const all = customQuestionsData.map(c=>({q:c.q, options:c.options, category:c.category||"other", kind:c.builtin?"builtin":"custom", key:c.id}));
+  const all = customQuestionsData.map(c=>({q:c.q, options:c.options, category:c.category||"other", kind:c.builtin?"builtin":"custom", key:c.id, targeted:!!c.targeted}));
   return all.filter(item=>enabled.has(item.category));
+}
+// 「關於你」題型的題目文字裡帶有 {player}，出題當下隨機挑一位在場玩家替換進去。
+function materializeQuestion(item, players){
+  if(!item.targeted || !players || !players.length) return {q:item.q, options:item.options};
+  const p = players[Math.floor(Math.random()*players.length)];
+  return {q:item.q.replace(/\{player\}/g, p.name), options:item.options};
 }
 function pickQuestion(excludeIdx, enabledCategories){
   const pool = getPool(enabledCategories);
@@ -650,6 +680,12 @@ function renderQuestionBank(){
       <div id="bankAddArea">
         ${bankFormOpen ? `
           <div class="stack">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:-4px;">
+              <button class="btn-ghost" id="bankRuleToggle" style="width:auto; padding:2px 4px; font-size:12px;">？ 題目撰寫規則</button>
+            </div>
+            ${bankRuleHelpOpen ? `
+              <p class="helper" style="text-align:left; margin:0;">一般題目：直接填題目和四個選項即可。<br>想讓題目自動帶入某位玩家的名字：在題目裡打上 <b>{player}</b>（含大括號），出題時會隨機換成當時房間裡一位玩家的名字，類別建議選「關於你」。</p>
+            ` : ``}
             <input type="text" id="bankQ" placeholder="題目" value="${esc(bankDraft.q)}" maxlength="60">
             <input type="text" id="bankA" placeholder="A 選項" value="${esc(bankDraft.opts[0])}" maxlength="30">
             <input type="text" id="bankB" placeholder="B 選項" value="${esc(bankDraft.opts[1])}" maxlength="30">
@@ -687,12 +723,15 @@ let bankFormOpen = false;
 let bankDraft = {q:"", opts:["","","",""], cat:"life"};
 let bankError = "";
 let bankEditingId = null;
+let bankRuleHelpOpen = false;
 
 function wireQuestionBank(){
   const bankClose = document.getElementById("bankClose");
   if(bankClose) bankClose.onclick = ()=>{ bankModalOpen = false; render(); };
   const bankBackdrop = document.getElementById("bankBackdrop");
   if(bankBackdrop) bankBackdrop.onclick = (e)=>{ if(e.target.id==="bankBackdrop"){ bankModalOpen = false; render(); } };
+  const bankRuleToggle = document.getElementById("bankRuleToggle");
+  if(bankRuleToggle) bankRuleToggle.onclick = ()=>{ bankRuleHelpOpen = !bankRuleHelpOpen; render(); };
 
   const openBtn = document.getElementById("bankOpen");
   if(openBtn) openBtn.onclick = ()=>{ bankFormOpen=true; bankEditingId=null; bankDraft={q:"",opts:["","","",""],cat:"life"}; bankError=""; render(); };
@@ -729,11 +768,12 @@ async function doSaveCustomQuestion(){
   if(!q || opts.some(o=>!o)){ bankError = "題目跟四個選項都要填喔"; render(); return; }
   const d = await ensureDb();
   if(!d){ bankError = "目前無法連線儲存"; render(); return; }
+  const targeted = q.includes("{player}"); // 題目裡有寫 {player}，出題時會自動換成隨機一位玩家的名字
   try{
     if(bankEditingId){
-      await customQuestionsCol.doc(bankEditingId).update({q, options:opts, category: bankDraft.cat||"life"});
+      await customQuestionsCol.doc(bankEditingId).update({q, options:opts, category: bankDraft.cat||"life", targeted});
     } else {
-      await customQuestionsCol.add({q, options:opts, category: bankDraft.cat||"life", createdAt: Date.now()});
+      await customQuestionsCol.add({q, options:opts, category: bankDraft.cat||"life", targeted, createdAt: Date.now()});
     }
     bankFormOpen = false; bankEditingId = null; bankDraft = {q:"", opts:["","","",""], cat:"life"}; bankError = "";
     render();
@@ -1065,7 +1105,7 @@ async function doStartGame(){
   const {idx, pool} = pickQuestion(roomData.lastQIdx, settings.enabledCategories);
   if(idx<0){ startError = "選取的題目類型目前沒有任何題目，請至少勾選一種類型"; render(); return; }
   startError = "";
-  const {q, options} = pool[idx];
+  const {q, options} = materializeQuestion(pool[idx], players);
   try{
     await Promise.all(players.map(p=> playersCol.doc(p.id).update({strikes:0})));
     clearRevealTimers(); revealAnimRound = null; revealStage = 0;
@@ -1145,7 +1185,7 @@ async function doNextQuestion(){
   const settings = roomData.settings || {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS};
   const {idx, pool} = pickQuestion(roomData.lastQIdx, settings.enabledCategories);
   if(idx<0) return;
-  const {q, options} = pool[idx];
+  const {q, options} = materializeQuestion(pool[idx], playersData);
   try{
     await roomRef.update({
       phase:"question", round:(roomData.round||1)+1, currentQuestion:{q, options},
@@ -1174,6 +1214,20 @@ async function ensureSeeded(d){
     await marker.set({done:true, at: Date.now()});
   }catch(e){}
 }
+// 第二批種子題（「關於你」題型），跟第一批分開用獨立標記，這樣已經玩過的房間也會補到新題目，不會重複。
+async function ensureSeededV2(d){
+  try{
+    const marker = d.doc("meta/questionsSeededV2");
+    const snap = await marker.get();
+    if(snap.exists) return;
+    await Promise.all(TARGETED_QUESTIONS.map((item,i)=>
+      d.collection("customQuestions").doc("seedv2_"+i).set({
+        q: item[0], options: item[1], category: item[2]||"aboutyou", builtin: true, targeted: true, createdAt: Date.now()
+      })
+    ));
+    await marker.set({done:true, at: Date.now()});
+  }catch(e){}
+}
 
 // ---------- boot ----------
 (async ()=>{
@@ -1186,6 +1240,7 @@ async function ensureSeeded(d){
       render();
     }, ()=>{});
     ensureSeeded(d);
+    ensureSeededV2(d);
   }
   if(identity){
     if(!db){
