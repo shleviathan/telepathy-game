@@ -205,6 +205,7 @@ select{
 
 .hidden{display:none !important;}
 footer{text-align:center; font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:.05em;}
+.versionline{text-align:center; font-size:10px; color:var(--muted); opacity:.55; margin-top:4px; letter-spacing:.03em;}
 </style>
 </head>
 <body>
@@ -216,6 +217,7 @@ footer{text-align:center; font-size:11px; color:var(--muted); margin-top:8px; le
   </div>
   <div id="app"></div>
   <footer>每人各自用手機打開這個房間，一起考驗默契</footer>
+  <div class="versionline" id="versionLine"></div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -231,6 +233,9 @@ const firebaseConfig = {
   measurementId: "G-J81WCB18BJ"
 };
 
+// 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
+const APP_VERSION = "v1.7";
+const APP_UPDATED = "2026-09-09";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
   {id:"travel", label:"旅行"},
@@ -1276,6 +1281,8 @@ async function ensureContentPatchV4(d){
 
 // ---------- boot ----------
 (async ()=>{
+  const vLine = document.getElementById("versionLine");
+  if(vLine) vLine.textContent = `${APP_VERSION} · 更新於 ${APP_UPDATED}`;
   render();
   const d = await ensureDb();
   if(d){
