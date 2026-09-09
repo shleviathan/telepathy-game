@@ -234,7 +234,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v1.14";
+const APP_VERSION = "v1.15";
 const APP_UPDATED = "2026-09-09";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -1075,7 +1075,7 @@ function connectRoom(){
   }, ()=>{});
   render();
   if(pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(pollRoomOnce, 4000);
+  pollTimer = setInterval(pollRoomOnce, 2000);
 }
 
 // 保底機制：即時監聽偶爾會漏更新（尤其手機網路不穩時），
@@ -1151,6 +1151,7 @@ async function doStartGame(){
   startError = "";
   const {q, options} = materializeQuestion(pool[idx], players, 1);
   try{
+    await clearAllVotes();
     await Promise.all(players.map(p=> playersCol.doc(p.id).update({strikes:0})));
     clearRevealTimers(); revealAnimRound = null; revealStage = 0;
     await roomRef.update({
@@ -1181,10 +1182,15 @@ async function tryResolve(){
     const fresh = await roomRef.get().catch(()=>null);
     if(!fresh || !fresh.exists || fresh.data().phase!=="question"){ resolveBusy=false; return; }
     const fd = fresh.data();
+    // 用 Firestore 現場抓一次玩家名單，不要用本地快取的 playersData——
+    // 這裡會有 await，快取可能在等待期間被 onSnapshot 換成「已經扣過分」的新資料，
+    // 如果還拿快取來算「扣分後是不是達標」會整組多算一次分（導致明明還沒到目標分數就結束遊戲）。
+    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
+    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
     const allVotedSnap = await votesCol.where("round","==",fd.round).get().catch(()=>({docs:[]}));
     const roundVotes = allVotedSnap.docs.map(dd=>dd.data());
     const timeUp = Date.now() >= (fd.roundEndAt||0);
-    const allVoted = roundVotes.length >= playersData.length;
+    const allVoted = roundVotes.length >= freshPlayers.length;
     if(!timeUp && !allVoted){ resolveBusy=false; return; }
 
     const byOption = {A:[],B:[],C:[],D:[]};
@@ -1200,18 +1206,21 @@ async function tryResolve(){
     } else {
       LETTERS.forEach(L=>{ if(byOption[L].length===1) struckIds.push(byOption[L][0]); });
     }
-    const noAnswerIds = playersData.map(p=>p.id).filter(id=>!votedIds.has(id));
+    const noAnswerIds = freshPlayers.map(p=>p.id).filter(id=>!votedIds.has(id));
     const allStruck = new Set([...struckIds, ...noAnswerIds]);
 
-    await Promise.all(playersData.map(p=>{
+    const newStrikesById = new Map();
+    await Promise.all(freshPlayers.map(p=>{
       if(allStruck.has(p.id)){
-        return playersCol.doc(p.id).update({strikes:(p.strikes||0)+1});
+        const ns = (p.strikes||0)+1;
+        newStrikesById.set(p.id, ns);
+        return playersCol.doc(p.id).update({strikes:ns});
       }
       return Promise.resolve();
     }));
 
     const target = (fd.settings && fd.settings.targetStrikes) || 3;
-    const losers = playersData.filter(p=> allStruck.has(p.id) && ((p.strikes||0)+1) >= target).map(p=>({id:p.id, name:p.name}));
+    const losers = freshPlayers.filter(p=> newStrikesById.has(p.id) && newStrikesById.get(p.id) >= target).map(p=>({id:p.id, name:p.name}));
 
     const log = (fd.revealLog||[]).slice();
     log.push({round: fd.round, q: fd.currentQuestion.q, options: fd.currentQuestion.options, byOption, struckIds, noAnswerIds});
@@ -1239,8 +1248,20 @@ async function doNextQuestion(){
   }catch(e){}
 }
 
+// 投票紀錄的文件 id 是「回合數_玩家id」，重開一局後回合數會從 1 重新算，
+// 如果不清掉舊局留下的投票紀錄，新局第 1 題一開始就會直接讀到「上一局第 1 題」的舊答案，
+// 造成「一進去就顯示已經選過答案」甚至看起來像亂選一個選項。
+async function clearAllVotes(){
+  try{
+    const vcol = roomRef.collection("votes");
+    const snap = await vcol.get();
+    await Promise.all(snap.docs.map(dd=> vcol.doc(dd.id).delete()));
+  }catch(e){}
+}
+
 async function doRematch(){
   try{
+    await clearAllVotes();
     await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({strikes:0, ready:false})));
     await roomRef.update({phase:"lobby", round:0, currentQuestion:null, roundEndAt:null, revealLog:[], losers:[]});
   }catch(e){}
