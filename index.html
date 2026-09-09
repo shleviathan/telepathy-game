@@ -115,6 +115,7 @@ select{
 .avatarchip{display:inline-flex; align-items:center; gap:5px; background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:4px 10px; font-size:12.5px; font-weight:700;}
 .avatarchip.mini{background:var(--surface-2); border-color:var(--line); padding:3px 8px; font-size:11.5px; gap:3px; margin:0 4px 4px 0;}
 .avatarchip.struckchip{background:var(--warn); border-color:var(--warn); color:var(--warn-ink);}
+.helptitle{font-weight:800; font-size:12.5px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px;}
 
 .iconrow{display:flex; gap:10px; margin-bottom:16px;}
 .iconbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:14px 10px; border-radius:14px; background:var(--surface); border:1.5px solid var(--line); box-shadow:0 10px 24px -18px var(--shadow);}
@@ -519,19 +520,19 @@ function renderHelpModal(){
           <button class="modalclose" id="helpClose">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
-          <div class="badge green">目標</div>
+          <div class="helptitle" style="color:var(--safe);">目標</div>
           <p class="helper" style="text-align:left; margin:0;">每一題畫面會出現 A / B / C / D 四個選項，倒數時間內大家一起選，看誰能跟大家有默契。</p>
         </div>
         <div class="card" style="margin-bottom:10px;">
-          <div class="badge purple">一般模式</div>
+          <div class="helptitle" style="color:var(--accent);">一般模式</div>
           <p class="helper" style="text-align:left; margin:0;">全場只有你選的答案，才會扣分；沒在時間內作答也會扣分。</p>
         </div>
         <div class="card" style="margin-bottom:10px;">
-          <div class="badge red">從眾模式</div>
+          <div class="helptitle" style="color:var(--warn);">從眾模式</div>
           <p class="helper" style="text-align:left; margin:0;">沒跟到「當輪最多人選」的答案就扣分，猜中大家想的才安全。</p>
         </div>
         <div class="card" style="margin-bottom:0;">
-          <div class="badge">結束</div>
+          <div class="helptitle">結束</div>
           <p class="helper" style="text-align:left; margin:0;">扣分累積到房主設定的次數（預設 3 次）就淘汰，遊戲結束後看誰扣分最少、誰扣分最多。</p>
         </div>
       </div>
