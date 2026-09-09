@@ -234,7 +234,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v1.8";
+const APP_VERSION = "v1.9";
 const APP_UPDATED = "2026-09-09";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -716,6 +716,7 @@ function renderQuestionBank(){
           </div>
         ` : `<button class="btn-secondary" id="bankOpen">＋ 新增一題</button>`}
       </div>
+      ${bankLoadError ? `<p class="helper" style="color:var(--warn); text-align:left; margin-top:10px;">題庫載入失敗：${esc(bankLoadError)}</p>` : ``}
       ${customQuestionsData.length ? `
         <div class="stack" style="margin-top:14px; max-height:360px; overflow-y:auto; padding-right:2px;">
           ${customQuestionsData.map(c=>`
@@ -728,7 +729,7 @@ function renderQuestionBank(){
             </div>
           `).join("")}
         </div>
-      ` : ``}
+      ` : (bankLoadError ? `` : `<p class="helper" style="margin-top:14px;">目前題庫是空的</p>`)}
     </div>
   `;
 }
@@ -737,6 +738,7 @@ let bankFormOpen = false;
 let bankDraft = {q:"", opts:["","","",""], cat:"life"};
 let bankError = "";
 let bankEditingId = null;
+let bankLoadError = "";
 let bankRuleHelpOpen = false;
 
 function wireQuestionBank(){
@@ -1283,9 +1285,14 @@ async function ensureContentPatchV5(d){
   if(d){
     customQuestionsCol = d.collection("customQuestions");
     unsubCustomQuestions = customQuestionsCol.orderBy("createdAt","asc").onSnapshot(qsnap=>{
+      bankLoadError = "";
       customQuestionsData = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
       render();
-    }, ()=>{});
+    }, err=>{
+      // 常見原因：Firestore 安全規則沒開放 customQuestions 這個 collection 的讀取權限。
+      bankLoadError = (err && (err.message||err.code)) || String(err);
+      render();
+    });
     ensureSeeded(d);
     ensureSeededV2(d);
     ensureContentPatchV5(d);
