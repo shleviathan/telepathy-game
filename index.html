@@ -234,7 +234,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v1.9";
+const APP_VERSION = "v1.10";
 const APP_UPDATED = "2026-09-09";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -1218,6 +1218,13 @@ async function doRematch(){
   }catch(e){}
 }
 
+// 把種子/修正流程中遇到的第一個錯誤顯示在題庫畫面上（例如 Firestore 規則沒開放寫入權限），方便排查。
+function reportSeedError(prefix, e){
+  if(bankLoadError) return; // 只留第一個錯誤，避免畫面被洗掉
+  bankLoadError = prefix + "：" + ((e && (e.message||e.code)) || String(e));
+  render();
+}
+
 async function ensureSeeded(d){
   try{
     const marker = d.doc("meta/questionsSeeded");
@@ -1229,7 +1236,7 @@ async function ensureSeeded(d){
       })
     ));
     await marker.set({done:true, at: Date.now()});
-  }catch(e){}
+  }catch(e){ reportSeedError("題庫初始化失敗（ensureSeeded）", e); }
 }
 // 第二批種子題（「關於你」題型），跟第一批分開用獨立標記，這樣已經玩過的房間也會補到新題目，不會重複。
 async function ensureSeededV2(d){
@@ -1243,7 +1250,7 @@ async function ensureSeededV2(d){
       })
     ));
     await marker.set({done:true, at: Date.now()});
-  }catch(e){}
+  }catch(e){ reportSeedError("題庫初始化失敗（ensureSeededV2）", e); }
 }
 
 // 修正題庫的寫入邏輯：改成一筆一筆依序寫入「完整」內容（含 createdAt），把所有 seed_/seedv2_ 題目資料修好，
@@ -1261,7 +1268,7 @@ async function ensureContentPatchV5(d){
           q: item[0], options: item[1], category: item[2]||"other",
           builtin: true, targeted: true, createdAt: 1788857016000 + i
         });
-      }catch(e){}
+      }catch(e){ reportSeedError("題庫寫入失敗（seed_"+i+"）", e); }
     }
     for(let i=0;i<TARGETED_QUESTIONS.length;i++){
       const item = TARGETED_QUESTIONS[i];
@@ -1270,10 +1277,10 @@ async function ensureContentPatchV5(d){
           q: item[0], options: item[1], category: item[2]||"aboutyou",
           builtin: true, targeted: true, createdAt: 1788857017000 + i
         });
-      }catch(e){}
+      }catch(e){ reportSeedError("題庫寫入失敗（seedv2_"+i+"）", e); }
     }
     await marker.set({done:true, at: Date.now()});
-  }catch(e){}
+  }catch(e){ reportSeedError("題庫修正失敗（ensureContentPatchV5）", e); }
 }
 
 // ---------- boot ----------
