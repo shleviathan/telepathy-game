@@ -234,7 +234,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v1.10";
+const APP_VERSION = "v1.11";
 const APP_UPDATED = "2026-09-09";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -793,7 +793,7 @@ async function doSaveCustomQuestion(){
     }
     bankFormOpen = false; bankEditingId = null; bankDraft = {q:"", opts:["","","",""], cat:"life"}; bankError = "";
     render();
-  }catch(e){ bankError = "儲存失敗，請再試一次"; render(); }
+  }catch(e){ bankError = "儲存失敗：" + ((e && (e.message||e.code)) || String(e)); render(); }
 }
 
 async function doDeleteCustomQuestion(id){
