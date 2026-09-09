@@ -240,6 +240,7 @@ const CATEGORIES = [
   {id:"entertainment", label:"娛樂嗜好"},
   {id:"values", label:"個性與價值觀"},
   {id:"fantasy", label:"幻想與假設"},
+  {id:"memory", label:"回憶"},
   {id:"aboutyou", label:"關於你"},
   {id:"other", label:"其他"}
 ];
@@ -249,107 +250,107 @@ const AVATARS = ["🦊","🐱","🐶","🐼","🐨","🐸","🦁","🐵","🐰",
 function randomAvatar(){ return AVATARS[Math.floor(Math.random()*AVATARS.length)]; }
 function avatarOf(p){ return (p && p.avatar) || "🙂"; }
 const QUESTIONS = [
-["如果你中了一億，你會先做什麼？",["環遊世界","買房子","捐一半出去","存起來不動"],"work_money"],
-["你最想要的超能力？",["瞬間移動","讀心術","隱形","飛行"],"fantasy"],
-["假日你比較想？",["在家耍廢","出門爬山","逛街購物","找朋友聚餐"],"life"],
-["你覺得哪個最重要？",["健康","金錢","愛情","自由"],"values"],
-["荒島求生你會帶？",["打火機","刀子","沒訊號的手機","一本書"],"fantasy"],
-["早餐你選？",["蛋餅","吐司","漢堡","飯糰"],"food"],
-["週末旅行你想去？",["海邊","山上","城市","鄉下"],"travel"],
-["你最怕的是？",["蟑螂","蛇","高處","黑暗"],"life"],
-["如果變動物你想當？",["貓","狗","鳥","魚"],"fantasy"],
-["你會怎麼跨年？",["看煙火","在家看電視","跟朋友吃飯","早點睡"],"life"],
-["最想學的才藝？",["吉他","畫畫","跳舞","烹飪"],"entertainment"],
-["你選哪種飲料？",["珍珠奶茶","咖啡","果汁","氣泡水"],"food"],
-["出國你想去？",["日本","歐洲","美國","東南亞"],"travel"],
-["你覺得最浪漫的驚喜？",["燭光晚餐","驚喜派對","手寫信","說走就走的旅行"],"relationship"],
-["遇到塞車你會？",["聽音樂","滑手機","按喇叭抱怨","冷靜等待"],"life"],
-["你比較想住？",["海邊小屋","市中心公寓","山上木屋","鄉下農舍"],"life"],
-["你選哪個當寵物？",["貓","狗","兔子","魚"],"life"],
-["半夜肚子餓你會？",["泡麵","吃水果","忍住不吃","叫外送"],"food"],
-["你最想擁有？",["時間暫停能力","永遠不會老","看穿別人心思","無限的錢"],"fantasy"],
-["電影你選？",["喜劇","恐怖片","愛情片","動作片"],"entertainment"],
-["你選哪個顏色代表自己？",["紅色","藍色","綠色","黃色"],"values"],
-["假如可以回到過去，你想回到？",["小學","高中","大學","不想回去"],"fantasy"],
-["你比較討厭？",["遲到","被放鴿子","被說謊","對方小氣"],"values"],
-["你選哪種旅遊方式？",["自由行","跟團","背包客","家庭旅遊"],"travel"],
-["你最想住哪個時代？",["古代","未來","現代","中世紀"],"fantasy"],
-["你選哪個宵夜？",["鹽酥雞","滷味","燒烤","火鍋"],"food"],
-["遇到蟑螂你會？",["尖叫逃跑","拿拖鞋打","假裝沒看到","叫別人處理"],"life"],
-["你選哪個假日活動？",["看電影","打電動","運動","睡覺"],"entertainment"],
-["你最想要的生日禮物？",["驚喜派對","現金","親手做的禮物","一起出去玩"],"relationship"],
-["你選哪個交通工具環島？",["機車","開車","火車","腳踏車"],"travel"],
-["你覺得最重要的朋友特質？",["幽默","可靠","真誠","聰明"],"relationship"],
-["你會怎麼慶祝生日？",["跟家人吃飯","朋友聚會","自己一個人過","出去旅行"],"relationship"],
-["你選哪種鍋？",["麻辣鍋","涮涮鍋","酸菜白肉鍋","石頭火鍋"],"food"],
-["你最想精通哪個語言？",["英文","日文","韓文","法文"],"values"],
-["週末下雨你會？",["在家追劇","睡到自然醒","看書","打掃家裡"],"life"],
-["你選哪個超市必買？",["零食","飲料","冰淇淋","水果"],"food"],
-["你最想收到的訊息？",["生日快樂","我愛你","加薪了","中獎了"],"relationship"],
-["你選哪個當週末早餐地點？",["早餐店","便利商店","自己煮","不吃早餐"],"food"],
-["你比較想要更多？",["時間","金錢","才華","朋友"],"values"],
-["你選哪個顏色的天空最美？",["日出的橘色","正午的藍色","黃昏的紫色","夜晚的黑色"],"life"],
-["你選哪個當作生活必需品？",["手機","咖啡","音樂","陽光"],"life"],
-["你覺得哪一種天氣最舒服？",["晴天","雨天","多雲","下雪天"],"life"],
-["你選哪個當背景音樂？",["抒情歌","搖滾","爵士","古典樂"],"entertainment"],
-["你比較想要哪種工作型態？",["朝九晚五","彈性上班","遠端工作","自己創業"],"work_money"],
-["你選哪個顏色的房間？",["白色","藍色","灰色","木質色"],"life"],
-["假日你想睡到？",["自然醒","中午","下午","照常早起"],"life"],
-["你選哪種鞋子？",["球鞋","拖鞋","皮鞋","涼鞋"],"life"],
-["你最想擁有哪種才能？",["唱歌好聽","很會說話","過目不忘","運動神經好"],"values"],
-["你選哪個社群平台最常用？",["Instagram","Facebook","YouTube","TikTok"],"entertainment"],
-["你比較想跟誰一起旅行？",["家人","另一半","朋友","自己一個人"],"travel"],
-["你選哪種咖啡？",["美式","拿鐵","卡布奇諾","黑咖啡"],"food"],
-["你最想住在哪種城市？",["台北","東京","紐約","小鎮"],"travel"],
-["你選哪個休閒運動？",["打籃球","游泳","慢跑","瑜珈"],"entertainment"],
-["你選哪種零食？",["洋芋片","巧克力","軟糖","堅果"],"food"],
-["你比較想要哪種假期？",["海島度假","文化古蹟之旅","極限運動","什麼都不做"],"travel"],
-["你選哪個當手機桌布？",["風景照","家人朋友合照","寵物照","簡約純色"],"life"],
-["你選哪種手作課程？",["陶藝","烘焙","繪畫","木工"],"entertainment"],
-["你覺得哪個最能代表友情？",["互相陪伴","互相幫忙","可以說真心話","一起經歷過的事"],"relationship"],
-["你選哪個天生技能最想要？",["語言天賦","音樂天賦","數學天賦","運動天賦"],"fantasy"],
-["你選哪種派對主題？",["萬聖節","生日派對","尾牙","畢業派對"],"entertainment"],
-["你比較想要哪種存款目標？",["買車","買房","出國旅遊","提早退休"],"work_money"],
-["你選哪個當週末電影院爆米花口味？",["原味鹹","焦糖","起司","巧克力"],"food"],
-["你選哪種鬧鐘鈴聲？",["輕音樂","鳥叫聲","傳統鬧鐘聲","自己選的歌"],"life"],
-["你覺得哪個最浪費時間？",["滑手機","追劇","打電動","發呆"],"values"],
-["你選哪個當紀念日禮物？",["首飾","香水","手錶","體驗券"],"relationship"],
-["你選哪種家庭聚餐？",["在家煮","訂外送","出去吃","自助餐"],"food"],
-["你比較想學會哪種運動？",["衝浪","滑雪","攀岩","潛水"],"entertainment"],
-["你選哪個顏色的車？",["白色","黑色","紅色","藍色"],"life"],
-["你選哪種寵物零食？",["罐頭","零食條","凍乾","自製鮮食"],"life"],
-["你覺得哪個最能形容你？",["冷靜","衝動","謹慎","隨性"],"values"],
-["你選哪個電玩類型？",["角色扮演","射擊遊戲","解謎遊戲","模擬經營"],"entertainment"],
-["你比較想住哪種房子？",["透天厝","電梯大樓","老公寓","鄉間別墅"],"life"],
-["你選哪種下午茶？",["蛋糕","鬆餅","馬卡龍","司康"],"food"],
-["你選哪個當旅行紀念品？",["磁鐵","明信片","當地特產","照片"],"travel"],
-["你比較能接受哪種超能力副作用？",["需要充電","只能維持一小時","會被別人發現","用了會累"],"fantasy"],
-["你選哪個當緊急聯絡對象？",["家人","另一半","好朋友","同事"],"relationship"],
-["你覺得哪個最療癒？",["看海","看夕陽","看星星","看雲"],"life"],
-["你選哪種考試複習方式？",["做題目","看筆記","找人討論","臨時抱佛腳"],"values"],
-["你比較想收到哪種稱讚？",["你很聰明","你很善良","你很有才華","你很努力"],"relationship"],
-["你選哪個當生日蛋糕口味？",["巧克力","草莓","抹茶","起司"],"food"],
-["你選哪種書？",["小說","漫畫","心理勵志","工具書"],"entertainment"],
-["你比較想學哪種樂器？",["鋼琴","吉他","爵士鼓","小提琴"],"entertainment"],
-["你選哪個當旅行交通方式？",["搭飛機","搭火車","自駕","搭船"],"travel"],
-["你覺得哪個是最重要的人生階段？",["學生時期","出社會工作","成家立業","退休生活"],"values"],
-["你選哪種筆記方式？",["手寫筆記本","手機備忘錄","電腦文件","不做筆記"],"life"],
-["你比較想要哪種天氣的婚禮？",["晴天戶外","室內宴會廳","雨天也浪漫","海邊夕陽"],"relationship"],
-["你選哪個當週末睡前習慣？",["滑手機","看書","聽音樂","立刻睡著"],"life"],
-["你覺得哪個最考驗耐心？",["排隊","塞車","等人","等外送"],"life"],
-["你選哪種家事最不想做？",["洗碗","拖地","洗衣服","倒垃圾"],"life"],
-["你比較想養哪種植物？",["多肉植物","香草植物","花","不想養植物"],"life"],
-["你選哪個當週年慶必買？",["保養品","衣服","家電","什麼都不買"],"life"],
-["你覺得哪個最能讓心情變好？",["吃美食","聽音樂","運動","睡一覺"],"life"],
-["你選哪種旅遊住宿？",["星級飯店","民宿","青年旅館","露營"],"travel"],
-["你比較想擁有哪種記憶力？",["過目不忘","選擇性遺忘","超強空間記憶","正常就好"],"fantasy"],
-["你選哪個當生活小確幸？",["喝一杯好咖啡","曬太陽","完成待辦清單","收到朋友訊息"],"life"],
-["你覺得哪個工作福利最重要？",["高薪","彈性工時","多天假","好同事"],"work_money"],
-["你選哪種旅行伴手禮預算？",["精打細算","適量就好","喜歡就買","不買紀念品"],"travel"],
-["你比較想要哪種週末天氣？",["晴朗涼爽","溫暖有陽光","微雨舒服","在家吹冷氣最好"],"life"],
-["你選哪個當減壓方式？",["運動流汗","找人聊天","獨處放空","大吃一頓"],"life"],
-["你覺得哪個最能代表台灣？",["夜市小吃","便利商店","珍珠奶茶","機車"],"life"],
-["你選哪個人生座右銘方向？",["活在當下","凡事努力","順其自然","勇敢冒險"],"values"],
+["你覺得如果{player}中了一億，會先做什麼？",["環遊世界", "買房子", "捐一半出去", "存起來不動"],"work_money"],
+["你猜{player}以前上課傳紙條最常聊什麼？",["八卦誰喜歡誰", "抱怨老師", "約放學要幹嘛", "作業或考試"],"memory"],
+["你認為{player}假日比較想做什麼？",["在家耍廢", "出門爬山", "逛街購物", "找朋友聚餐"],"life"],
+["你覺得{player}覺得哪個最重要？",["健康", "金錢", "愛情", "自由"],"values"],
+["你猜{player}以前段考完最常做什麼放鬆？",["馬上出去玩", "睡到爽", "打電動", "聚餐慶祝"],"memory"],
+["你認為{player}早餐會選哪一種？",["蛋餅", "吐司", "漢堡", "飯糰"],"food"],
+["你覺得{player}週末旅行想去哪裡？",["海邊", "山上", "城市", "鄉下"],"travel"],
+["你猜{player}最怕的是？",["蟑螂", "蛇", "高處", "黑暗"],"life"],
+["你認為以前營養午餐{player}最期待哪一道？",["咖哩飯", "炸雞腿", "義大利麵", "水果優格"],"memory"],
+["你覺得{player}會怎麼跨年？",["看煙火", "在家看電視", "跟朋友吃飯", "早點睡"],"life"],
+["你猜{player}最想學的才藝是？",["吉他", "畫畫", "跳舞", "烹飪"],"entertainment"],
+["你認為{player}會選哪種飲料？",["珍珠奶茶", "咖啡", "果汁", "氣泡水"],"food"],
+["你覺得{player}出國想去哪裡？",["日本", "歐洲", "美國", "東南亞"],"travel"],
+["你猜{player}覺得最浪漫的驚喜？",["燭光晚餐", "驚喜派對", "手寫信", "說走就走的旅行"],"relationship"],
+["你認為{player}遇到塞車會怎麼做？",["聽音樂", "滑手機", "按喇叭抱怨", "冷靜等待"],"life"],
+["你覺得{player}比較想住哪裡？",["海邊小屋", "市中心公寓", "山上木屋", "鄉下農舍"],"life"],
+["你猜{player}會選哪個當寵物？",["貓", "狗", "兔子", "魚"],"life"],
+["你認為{player}半夜肚子餓會怎麼做？",["泡麵", "吃水果", "忍住不吃", "叫外送"],"food"],
+["你覺得放學後{player}最常去哪裡晃？",["補習班", "同學家", "便利商店", "直接回家"],"memory"],
+["你猜{player}會選哪種電影？",["喜劇", "恐怖片", "愛情片", "動作片"],"entertainment"],
+["你認為以前上學{player}最常用哪種方式抵達學校？",["走路", "騎腳踏車", "家人接送", "搭公車或捷運"],"memory"],
+["你覺得假如可以回到過去，{player}想回到哪個階段？",["小學", "高中", "大學", "不想回去"],"memory"],
+["你猜{player}比較討厭哪一種？",["遲到", "被放鴿子", "被說謊", "對方小氣"],"values"],
+["你認為{player}會選哪種旅遊方式？",["自由行", "跟團", "背包客", "家庭旅遊"],"travel"],
+["你覺得{player}最想住哪個時代？",["古代", "未來", "現代", "中世紀"],"fantasy"],
+["你猜{player}會選哪個宵夜？",["鹽酥雞", "滷味", "燒烤", "火鍋"],"food"],
+["你認為{player}遇到蟑螂會怎麼做？",["尖叫逃跑", "拿拖鞋打", "假裝沒看到", "叫別人處理"],"life"],
+["你覺得{player}會選哪個假日活動？",["看電影", "打電動", "運動", "睡覺"],"entertainment"],
+["你猜{player}最想要的生日禮物？",["驚喜派對", "現金", "親手做的禮物", "一起出去玩"],"relationship"],
+["你認為{player}會選哪個交通工具環島？",["機車", "開車", "火車", "腳踏車"],"travel"],
+["你覺得{player}覺得最重要的朋友特質？",["幽默", "可靠", "真誠", "聰明"],"relationship"],
+["你猜{player}會怎麼慶祝生日？",["跟家人吃飯", "朋友聚會", "自己一個人過", "出去旅行"],"relationship"],
+["你認為{player}會選哪種鍋？",["麻辣鍋", "涮涮鍋", "酸菜白肉鍋", "石頭火鍋"],"food"],
+["你覺得{player}最想精通哪個語言？",["英文", "日文", "韓文", "法文"],"values"],
+["你猜{player}週末下雨會怎麼做？",["在家追劇", "睡到自然醒", "看書", "打掃家裡"],"life"],
+["你認為{player}會選哪個超市必買？",["零食", "飲料", "冰淇淋", "水果"],"food"],
+["你覺得{player}最想收到的訊息？",["生日快樂", "我愛你", "加薪了", "中獎了"],"relationship"],
+["你猜{player}會選哪個當週末早餐地點？",["早餐店", "便利商店", "自己煮", "不吃早餐"],"food"],
+["你認為{player}比較想要更多哪一種？",["時間", "金錢", "才華", "朋友"],"values"],
+["你覺得{player}會選哪個顏色的天空最美？",["日出的橘色", "正午的藍色", "黃昏的紫色", "夜晚的黑色"],"life"],
+["你猜{player}會選哪個當作生活必需品？",["手機", "咖啡", "音樂", "陽光"],"life"],
+["你認為{player}覺得哪一種天氣最舒服？",["晴天", "雨天", "多雲", "下雪天"],"life"],
+["你覺得{player}會選哪個當背景音樂？",["抒情歌", "搖滾", "爵士", "古典樂"],"entertainment"],
+["你猜{player}比較想要哪種工作型態？",["朝九晚五", "彈性上班", "遠端工作", "自己創業"],"work_money"],
+["你認為小時候下課十分鐘{player}最常做什麼？",["聊天", "去福利社", "趴著休息", "跑出去玩"],"memory"],
+["你覺得{player}假日想睡到什麼時候？",["自然醒", "中午", "下午", "照常早起"],"life"],
+["你猜{player}這群朋友揪聚餐，最常吃哪一種？",["火鍋", "燒肉", "熱炒", "小吃店"],"life"],
+["你認為{player}最想擁有哪種才能？",["唱歌好聽", "很會說話", "過目不忘", "運動神經好"],"values"],
+["你覺得{player}會選哪個社群平台最常用？",["Instagram", "Facebook", "YouTube", "TikTok"],"entertainment"],
+["你猜{player}比較想跟誰一起旅行？",["家人", "另一半", "朋友", "自己一個人"],"travel"],
+["你認為{player}會選哪種咖啡？",["美式", "拿鐵", "卡布奇諾", "黑咖啡"],"food"],
+["你覺得{player}最想住在哪種城市？",["台北", "東京", "紐約", "小鎮"],"travel"],
+["你猜{player}會選哪個休閒運動？",["打籃球", "游泳", "慢跑", "瑜珈"],"entertainment"],
+["你認為{player}會選哪種零食？",["洋芋片", "巧克力", "軟糖", "堅果"],"food"],
+["你覺得{player}比較想要哪種假期？",["海島度假", "文化古蹟之旅", "極限運動", "什麼都不做"],"travel"],
+["你猜{player}會選哪個當手機桌布？",["風景照", "家人朋友合照", "寵物照", "簡約純色"],"life"],
+["你認為{player}會選哪種手作課程？",["陶藝", "烘焙", "繪畫", "木工"],"entertainment"],
+["你覺得{player}覺得哪個最能代表友情？",["互相陪伴", "互相幫忙", "可以說真心話", "一起經歷過的事"],"relationship"],
+["你猜{player}以前教室座位最想坐哪裡？",["最後一排", "靠窗", "中間", "靠門口"],"memory"],
+["你認為{player}會選哪種派對主題？",["萬聖節", "生日派對", "尾牙", "畢業派對"],"entertainment"],
+["你覺得{player}比較想要哪種存款目標？",["買車", "買房", "出國旅遊", "提早退休"],"work_money"],
+["你猜{player}會選哪個當週末電影院爆米花口味？",["原味鹹", "焦糖", "起司", "巧克力"],"food"],
+["你認為{player}會選哪種鬧鐘鈴聲？",["輕音樂", "鳥叫聲", "傳統鬧鐘聲", "自己選的歌"],"life"],
+["你覺得{player}覺得哪個最浪費時間？",["滑手機", "追劇", "打電動", "發呆"],"values"],
+["你猜{player}會選哪個當紀念日禮物？",["首飾", "香水", "手錶", "體驗券"],"relationship"],
+["你認為{player}會選哪種家庭聚餐？",["在家煮", "訂外送", "出去吃", "自助餐"],"food"],
+["你覺得{player}比較想學會哪種運動？",["衝浪", "滑雪", "攀岩", "潛水"],"entertainment"],
+["你猜{player}以前段考前一晚通常在幹嘛？",["臨時抱佛腳", "早就唸完了", "跟同學討論", "已經放棄掙扎"],"memory"],
+["你認為{player}會選哪種寵物零食？",["罐頭", "零食條", "凍乾", "自製鮮食"],"life"],
+["你覺得朋友揪團出去玩，{player}通常負責哪個角色？",["排行程規劃", "訂位搶票", "拍照記錄", "負責聊天炒氣氛"],"life"],
+["你猜{player}會選哪個電玩類型？",["角色扮演", "射擊遊戲", "解謎遊戲", "模擬經營"],"entertainment"],
+["你認為{player}比較想住哪種房子？",["透天厝", "電梯大樓", "老公寓", "鄉間別墅"],"life"],
+["你覺得{player}會選哪種下午茶？",["蛋糕", "鬆餅", "馬卡龍", "司康"],"food"],
+["你猜{player}會選哪個當旅行紀念品？",["磁鐵", "明信片", "當地特產", "照片"],"travel"],
+["你認為{player}小時候最愛玩哪種下課遊戲？",["跳格子", "橡皮筋", "紙牌交換", "躲避球"],"memory"],
+["你覺得{player}會選哪個當緊急聯絡對象？",["家人", "另一半", "好朋友", "同事"],"relationship"],
+["你猜{player}覺得哪個最療癒？",["看海", "看夕陽", "看星星", "看雲"],"life"],
+["你認為{player}會選哪種考試複習方式？",["做題目", "看筆記", "找人討論", "臨時抱佛腳"],"values"],
+["你覺得{player}比較想收到哪種稱讚？",["你很聰明", "你很善良", "你很有才華", "你很努力"],"relationship"],
+["你猜{player}會選哪個當生日蛋糕口味？",["巧克力", "草莓", "抹茶", "起司"],"food"],
+["你認為{player}會選哪種書？",["小說", "漫畫", "心理勵志", "工具書"],"entertainment"],
+["你覺得{player}比較想學哪種樂器？",["鋼琴", "吉他", "爵士鼓", "小提琴"],"entertainment"],
+["你猜{player}會選哪個當旅行交通方式？",["搭飛機", "搭火車", "自駕", "搭船"],"travel"],
+["你認為{player}覺得哪個是最重要的人生階段？",["學生時期", "出社會工作", "成家立業", "退休生活"],"values"],
+["你覺得{player}會選哪種筆記方式？",["手寫筆記本", "手機備忘錄", "電腦文件", "不做筆記"],"life"],
+["你猜{player}比較想要哪種天氣的婚禮？",["晴天戶外", "室內宴會廳", "雨天也浪漫", "海邊夕陽"],"relationship"],
+["你認為{player}會選哪個當週末睡前習慣？",["滑手機", "看書", "聽音樂", "立刻睡著"],"life"],
+["你覺得{player}覺得哪個最考驗耐心？",["排隊", "塞車", "等人", "等外送"],"life"],
+["你猜{player}會選哪種家事最不想做？",["洗碗", "拖地", "洗衣服", "倒垃圾"],"life"],
+["你認為{player}比較想養哪種植物？",["多肉植物", "香草植物", "花", "不想養植物"],"life"],
+["你覺得{player}會選哪個當週年慶必買？",["保養品", "衣服", "家電", "什麼都不買"],"life"],
+["你猜{player}覺得哪個最能讓心情變好？",["吃美食", "聽音樂", "運動", "睡一覺"],"life"],
+["你認為{player}會選哪種旅遊住宿？",["星級飯店", "民宿", "青年旅館", "露營"],"travel"],
+["你覺得朋友生日聚會{player}通常怎麼慶祝？",["訂蛋糕唱生日歌", "揪出去吃大餐", "準備驚喜禮物", "單純聚在一起聊天"],"relationship"],
+["你猜{player}會選哪個當生活小確幸？",["喝一杯好咖啡", "曬太陽", "完成待辦清單", "收到朋友訊息"],"life"],
+["你認為{player}覺得哪個工作福利最重要？",["高薪", "彈性工時", "多天假", "好同事"],"work_money"],
+["你覺得{player}會選哪種旅行伴手禮預算？",["精打細算", "適量就好", "喜歡就買", "不買紀念品"],"travel"],
+["你猜{player}比較想要哪種週末天氣？",["晴朗涼爽", "溫暖有陽光", "微雨舒服", "在家吹冷氣最好"],"life"],
+["你認為{player}會選哪個當減壓方式？",["運動流汗", "找人聊天", "獨處放空", "大吃一頓"],"life"],
+["你覺得{player}覺得哪個最能代表台灣？",["夜市小吃", "便利商店", "珍珠奶茶", "機車"],"life"],
+["你猜{player}會選哪個人生座右銘方向？",["活在當下", "凡事努力", "順其自然", "勇敢冒險"],"values"],
 ];
 // 「關於你」題型：{player} 會在出題時被隨機替換成場上其中一位玩家的名字，全場一起猜這個人的答案。
 const TARGETED_QUESTIONS = [
@@ -387,11 +388,19 @@ function getPool(enabledCategories){
   const all = customQuestionsData.map(c=>({q:c.q, options:c.options, category:c.category||"other", kind:c.builtin?"builtin":"custom", key:c.id, targeted:!!c.targeted}));
   return all.filter(item=>enabled.has(item.category));
 }
-// 「關於你」題型的題目文字裡帶有 {player}，出題當下隨機挑一位在場玩家替換進去。
-function materializeQuestion(item, players){
-  if(!item.targeted || !players || !players.length) return {q:item.q, options:item.options};
-  const p = players[Math.floor(Math.random()*players.length)];
-  return {q:item.q.replace(/\{player\}/g, p.name), options:item.options};
+// 每一題都會帶入「本輪主角」：{player} 會被換成本輪輪到的玩家名字，全場一起猜這個人的答案。
+// 主角是依加入順序（joinedAt）輪流分配，用回合數(round)決定輪到誰，不是隨機挑，確保每個人被當主角的次數公平。
+function pickProtagonist(players, round){
+  if(!players || !players.length) return null;
+  const ordered = players.slice().sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
+  const idx = ((round||1)-1) % ordered.length;
+  return ordered[idx];
+}
+function materializeQuestion(item, players, round){
+  if(!players || !players.length) return {q:item.q, options:item.options};
+  const p = pickProtagonist(players, round);
+  const nm = p ? p.name : "某人";
+  return {q:item.q.replace(/\{player\}/g, nm), options:item.options};
 }
 function pickQuestion(excludeIdx, enabledCategories){
   const pool = getPool(enabledCategories);
@@ -684,9 +693,9 @@ function renderQuestionBank(){
               <button class="btn-ghost" id="bankRuleToggle" style="width:auto; padding:2px 4px; font-size:12px;">？ 題目撰寫規則</button>
             </div>
             ${bankRuleHelpOpen ? `
-              <p class="helper" style="text-align:left; margin:0;">一般題目：直接填題目和四個選項即可。<br>想讓題目自動帶入某位玩家的名字：在題目裡打上 <b>{player}</b>（含大括號），出題時會隨機換成當時房間裡一位玩家的名字，類別建議選「關於你」。</p>
+              <p class="helper" style="text-align:left; margin:0;">每一題都要帶入「本輪主角」：題目裡要打上 <b>{player}</b>（含大括號），出題時會自動換成當輪輪到的玩家名字，例如「你猜{player}最想去的地方是？」。系統會依玩家加入順序輪流分配主角，讓每個人被當主角的次數公平，不用手動指定。</p>
             ` : ``}
-            <input type="text" id="bankQ" placeholder="題目" value="${esc(bankDraft.q)}" maxlength="60">
+            <input type="text" id="bankQ" placeholder="題目（需包含 {player}）" value="${esc(bankDraft.q)}" maxlength="60">
             <input type="text" id="bankA" placeholder="A 選項" value="${esc(bankDraft.opts[0])}" maxlength="30">
             <input type="text" id="bankB" placeholder="B 選項" value="${esc(bankDraft.opts[1])}" maxlength="30">
             <input type="text" id="bankC" placeholder="C 選項" value="${esc(bankDraft.opts[2])}" maxlength="30">
@@ -766,14 +775,14 @@ async function doSaveCustomQuestion(){
   const q = bankDraft.q.trim();
   const opts = bankDraft.opts.map(o=>o.trim());
   if(!q || opts.some(o=>!o)){ bankError = "題目跟四個選項都要填喔"; render(); return; }
+  if(!q.includes("{player}")){ bankError = "題目裡要包含 {player}，出題時才會換成本輪主角的名字"; render(); return; }
   const d = await ensureDb();
   if(!d){ bankError = "目前無法連線儲存"; render(); return; }
-  const targeted = q.includes("{player}"); // 題目裡有寫 {player}，出題時會自動換成隨機一位玩家的名字
   try{
     if(bankEditingId){
-      await customQuestionsCol.doc(bankEditingId).update({q, options:opts, category: bankDraft.cat||"life", targeted});
+      await customQuestionsCol.doc(bankEditingId).update({q, options:opts, category: bankDraft.cat||"life", targeted:true});
     } else {
-      await customQuestionsCol.add({q, options:opts, category: bankDraft.cat||"life", targeted, createdAt: Date.now()});
+      await customQuestionsCol.add({q, options:opts, category: bankDraft.cat||"life", targeted:true, createdAt: Date.now()});
     }
     bankFormOpen = false; bankEditingId = null; bankDraft = {q:"", opts:["","","",""], cat:"life"}; bankError = "";
     render();
@@ -1105,7 +1114,7 @@ async function doStartGame(){
   const {idx, pool} = pickQuestion(roomData.lastQIdx, settings.enabledCategories);
   if(idx<0){ startError = "選取的題目類型目前沒有任何題目，請至少勾選一種類型"; render(); return; }
   startError = "";
-  const {q, options} = materializeQuestion(pool[idx], players);
+  const {q, options} = materializeQuestion(pool[idx], players, 1);
   try{
     await Promise.all(players.map(p=> playersCol.doc(p.id).update({strikes:0})));
     clearRevealTimers(); revealAnimRound = null; revealStage = 0;
@@ -1185,10 +1194,11 @@ async function doNextQuestion(){
   const settings = roomData.settings || {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS};
   const {idx, pool} = pickQuestion(roomData.lastQIdx, settings.enabledCategories);
   if(idx<0) return;
-  const {q, options} = materializeQuestion(pool[idx], playersData);
+  const nextRound = (roomData.round||1)+1;
+  const {q, options} = materializeQuestion(pool[idx], playersData, nextRound);
   try{
     await roomRef.update({
-      phase:"question", round:(roomData.round||1)+1, currentQuestion:{q, options},
+      phase:"question", round:nextRound, currentQuestion:{q, options},
       roundEndAt: Date.now() + settings.duration*1000, lastQIdx: idx
     });
   }catch(e){}
@@ -1229,6 +1239,41 @@ async function ensureSeededV2(d){
   }catch(e){}
 }
 
+// 修正第一批種子題裡幾題的文字/分類（改成日常生活、回憶取向），已經玩過的房間也會補到新內容。
+// 只更新這些題目在 QUESTIONS 陣列中的原始 index，不會影響其他題目或順序。
+const CONTENT_PATCH_V3_INDEXES = [1,4,8,18,20,21,44,46,58,67,69,74,93];
+async function ensureContentPatchV3(d){
+  try{
+    const marker = d.doc("meta/questionsContentPatchV3");
+    const snap = await marker.get();
+    if(snap.exists) return;
+    await Promise.all(CONTENT_PATCH_V3_INDEXES.map(i=>{
+      const item = QUESTIONS[i];
+      if(!item) return Promise.resolve();
+      return d.collection("customQuestions").doc("seed_"+i).set({
+        q: item[0], options: item[1], category: item[2]||"other", builtin: true
+      }, {merge:true});
+    }));
+    await marker.set({done:true, at: Date.now()});
+  }catch(e){}
+}
+
+// 玩法改版：所有題目都改成「輪流帶入本輪主角」，第一批101題全部重寫成猜某人答案的形式，
+// 所以直接把 seed_0 ~ seed_100 整批用新內容覆蓋，已經玩過的房間也會補到新題目。
+async function ensureContentPatchV4(d){
+  try{
+    const marker = d.doc("meta/questionsContentPatchV4");
+    const snap = await marker.get();
+    if(snap.exists) return;
+    await Promise.all(QUESTIONS.map((item,i)=>
+      d.collection("customQuestions").doc("seed_"+i).set({
+        q: item[0], options: item[1], category: item[2]||"other", builtin: true, targeted: true
+      }, {merge:true})
+    ));
+    await marker.set({done:true, at: Date.now()});
+  }catch(e){}
+}
+
 // ---------- boot ----------
 (async ()=>{
   render();
@@ -1241,6 +1286,8 @@ async function ensureSeededV2(d){
     }, ()=>{});
     ensureSeeded(d);
     ensureSeededV2(d);
+    ensureContentPatchV3(d);
+    ensureContentPatchV4(d);
   }
   if(identity){
     if(!db){
