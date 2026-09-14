@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>心電感應</title>
+<title>派對遊戲</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&family=Orbitron:wght@600;800&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap">
 <style>
@@ -178,14 +178,13 @@ select{
 .optbtn.picked{background:linear-gradient(150deg, var(--accent), #c9ab98); border-color:var(--accent); color:var(--accent-ink);}
 .optbtn.picked .letter{color:var(--accent-ink); opacity:.85;}
 
-.mlranklist{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
-.mlrankitem{display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:10px; background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:9px 12px;}
+.mlranklist{display:flex; flex-direction:column; gap:8px; margin-top:4px; position:relative;}
+.mlrankitem{display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:10px; background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:9px 12px; transition:transform .18s ease; touch-action:none;}
 .mlrankitem.base{border-color:var(--accent);}
+.mlrankitem.dragging{transition:none; z-index:5; box-shadow:0 14px 30px -16px var(--shadow); background:var(--surface); cursor:grabbing;}
 .mlrankidx{font-family:"JetBrains Mono",monospace; font-weight:800; color:var(--muted); text-align:center;}
-.mlrankname{font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-.mlrankbtns{display:flex; gap:4px;}
-.mlarrow{width:28px; height:28px; padding:0; border-radius:8px; background:var(--surface); color:var(--ink); border:1px solid var(--line); font-size:13px; flex:none;}
-.mlarrow:disabled{opacity:.35;}
+.mlrankname{font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; user-select:none;}
+.mlrankhandle{width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:8px; color:var(--muted); font-size:16px; flex:none; cursor:grab; touch-action:none;}
 .mlscale{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin:2px 2px 0; font-weight:700;}
 
 .answeredrow{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:16px;}
@@ -246,8 +245,8 @@ footer{text-align:center; font-size:11px; color:var(--muted); margin-top:8px; le
 <div class="wrap">
   <div class="masthead">
     <div class="kicker">FRIENDS · SYNC CHECK</div>
-    <h1>心電感應</h1>
-    <div class="sub">大家一起選，選到跟別人不一樣就扣一分</div>
+    <h1>派對遊戲</h1>
+    <div class="sub">PLAY ALL DAY</div>
   </div>
   <div id="app"></div>
   <footer>每人各自用手機打開這個房間，一起考驗默契</footer>
@@ -268,7 +267,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v2.2";
+const APP_VERSION = "v2.4";
 const APP_UPDATED = "2026-09-14";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -597,6 +596,7 @@ let homeTab="create", homeName="", homeCode="", homeAvatar=randomAvatar();
 let homeGameType = "telepathy"; // 開新房間時選的遊戲；加入房間時不用選，遊戲類型由房主的房間決定
 let mlRevealAnimRound = null, mlRevealReady = false, mlSoundedRound = null;
 let mlRankOrder = null, mlRankOrderRound = null; // 「誰最可能」排序中的本地暫存排序（送出前不寫進資料庫）
+let mlDragging = false; // 是否正在拖曳排序中，拖曳時暫停畫面重畫
 // 分享出去的連結會帶 ?code=XXXX，開啟時直接幫忙切到「加入房間」分頁並帶入代碼。
 try{
   const _params = new URLSearchParams(location.search);
@@ -615,6 +615,7 @@ let voteBusy=false, resolveBusy=false;
 const app = document.getElementById("app");
 
 function render(){
+  if(mlDragging) return; // 排序拖曳中先不要整頁重畫，不然手指拖到一半畫面會被背景更新打斷、跳掉
   if(!identity){ renderHome(); return; }
   if(!roomData){ renderConnecting(); return; }
   if(!roomData.exists){ renderGone(); return; }
@@ -1376,13 +1377,10 @@ function renderMLQuestion(me, isHost){
         ${order.map((id,i)=>{
           const p = playersData.find(pp=>pp.id===id);
           if(!p) return "";
-          return `<div class="mlrankitem ${id===baseId?'base':''}">
+          return `<div class="mlrankitem ${id===baseId?'base':''}" data-id="${id}">
             <span class="mlrankidx">${i+1}</span>
             <span class="mlrankname">${avatarOf(p)} ${esc(p.name)}${id===identity.playerId?' <span class="you">YOU</span>':''}${id===baseId?' 🎯':''}</span>
-            ${!myVote ? `<span class="mlrankbtns">
-              <button class="mlarrow" data-move="-1" data-id="${id}" ${i===0?'disabled':''}>▲</button>
-              <button class="mlarrow" data-move="1" data-id="${id}" ${i===order.length-1?'disabled':''}>▼</button>
-            </span>` : ``}
+            ${!myVote ? `<span class="mlrankhandle" data-handle="${id}">⠿</span>` : ``}
           </div>`;
         }).join("")}
       </div>
@@ -1394,21 +1392,72 @@ function renderMLQuestion(me, isHost){
     <button class="btn-ghost" id="leaveBtn">離開房間</button>
   `;
   if(!myVote){
-    document.querySelectorAll(".mlarrow").forEach(b=>{
-      b.onclick = ()=> mlMoveRank(b.dataset.id, parseInt(b.dataset.move,10));
-    });
+    wireMLDrag();
     document.getElementById("submitRankBtn").onclick = submitMLRanking;
   }
   document.getElementById("leaveBtn").onclick = doLeave;
 }
 
-function mlMoveRank(id, dir){
-  if(!mlRankOrder) return;
-  const i = mlRankOrder.indexOf(id);
-  const j = i + dir;
-  if(i<0 || j<0 || j>=mlRankOrder.length) return;
-  const tmp = mlRankOrder[i]; mlRankOrder[i] = mlRankOrder[j]; mlRankOrder[j] = tmp;
-  render();
+// 用手指/滑鼠拖曳排序：拖曳過程中不整頁重畫（只移動被拖的那一列＋讓其他列讓位），
+// 放開時才把新順序寫回 mlRankOrder 並重新整頁畫面。
+function wireMLDrag(){
+  const list = document.querySelector(".mlranklist");
+  if(!list) return;
+  list.querySelectorAll("[data-handle]").forEach(handle=>{
+    handle.addEventListener("pointerdown", (e)=> startMLDrag(e, handle.closest(".mlrankitem"), list));
+  });
+}
+
+function startMLDrag(e, item, list){
+  if(!item || !list) return;
+  e.preventDefault();
+  const id = item.dataset.id;
+  const baseOrder = mlRankOrder.slice();
+  const fromIndex = baseOrder.indexOf(id);
+  if(fromIndex<0) return;
+  mlDragging = true;
+  const rows = Array.from(list.children);
+  const gap = 8; // 對應 .mlranklist 的 gap
+  const rowHeight = item.getBoundingClientRect().height + gap;
+  const startY = e.clientY;
+  let lastToIndex = fromIndex;
+  try{ item.setPointerCapture(e.pointerId); }catch(err){}
+  item.classList.add("dragging");
+
+  function applyOffsets(toIndex){
+    rows.forEach((row,i)=>{
+      if(row===item) return;
+      let shift = 0;
+      if(fromIndex < toIndex && i > fromIndex && i <= toIndex) shift = -rowHeight;
+      else if(fromIndex > toIndex && i >= toIndex && i < fromIndex) shift = rowHeight;
+      row.style.transform = shift ? `translateY(${shift}px)` : "";
+    });
+  }
+  function onMove(ev){
+    const dy = ev.clientY - startY;
+    item.style.transform = `translateY(${dy}px)`;
+    let toIndex = fromIndex + Math.round(dy / rowHeight);
+    toIndex = Math.max(0, Math.min(rows.length-1, toIndex));
+    if(toIndex !== lastToIndex){ lastToIndex = toIndex; applyOffsets(toIndex); }
+  }
+  function onUp(){
+    item.removeEventListener("pointermove", onMove);
+    item.removeEventListener("pointerup", onUp);
+    item.removeEventListener("pointercancel", onUp);
+    item.classList.remove("dragging");
+    rows.forEach(row=>{ row.style.transform = ""; });
+    if(lastToIndex !== fromIndex){
+      const next = baseOrder.slice();
+      next.splice(fromIndex,1);
+      next.splice(lastToIndex,0,id);
+      mlRankOrder = next;
+    }
+    mlDragging = false;
+    render();
+  }
+  item.addEventListener("pointermove", onMove);
+  item.addEventListener("pointerup", onUp);
+  item.addEventListener("pointercancel", onUp);
 }
 
 function startMLRevealAnim(round){
