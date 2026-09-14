@@ -82,6 +82,8 @@ button:disabled{opacity:.4; cursor:not-allowed;}
 .strikes .dots{display:flex; gap:3px;}
 .dot{width:7px; height:7px; border-radius:50%; background:var(--line);}
 .dot.on{background:var(--warn);}
+.prow-actions{display:flex; align-items:center; gap:8px;}
+.kickbtn{width:auto; padding:3px 9px; font-size:11px; font-weight:800; background:transparent; color:var(--warn); border:1px solid var(--warn); border-radius:8px; flex:none;}
 
 .settingsrow{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px solid var(--line);}
 .settingsrow:first-of-type{border-top:none;}
@@ -138,7 +140,7 @@ select{
 
 .error{color:var(--warn); font-size:13px; margin:-6px 0 12px; min-height:1em; font-weight:700;}
 .helper{color:var(--muted); font-size:13px; text-align:center; margin:0 0 14px;}
-.codeshare{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px;}
+.codeshare{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
 .codeshare .code{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:28px; letter-spacing:.22em; color:var(--accent);}
 .copybtn{width:auto; padding:8px 12px; font-size:12px; background:var(--surface-2); color:var(--ink); border:1px solid var(--line); border-radius:10px;}
 .spin{display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:6px;}
@@ -234,7 +236,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v1.15";
+const APP_VERSION = "v1.17";
 const APP_UPDATED = "2026-09-09";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -407,6 +409,67 @@ function materializeQuestion(item, players, round){
   const nm = p ? p.name : "某人";
   return {q:item.q.replace(/PP/g, nm), options:item.options};
 }
+// ---------- 音效 / 震動回饋 ----------
+function setSoundEnabled(v){
+  soundEnabled = v;
+  try{ localStorage.setItem("telepathySound", v?"on":"off"); }catch(e){}
+}
+function beep(freq, durMs, type){
+  if(!soundEnabled) return;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type||"sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.16, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durMs/1000);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + durMs/1000);
+  }catch(e){}
+}
+function vibrate(pattern){
+  if(!soundEnabled) return;
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+function playVoteSound(){ beep(520,70,"sine"); vibrate(15); }
+function playResultSound(safe){
+  if(safe){
+    beep(660,90,"sine");
+    setTimeout(()=>beep(880,120,"sine"), 90);
+    vibrate(20);
+  } else {
+    beep(180,220,"sawtooth");
+    vibrate([40,40,40]);
+  }
+}
+
+// ---------- 房間過期清理 ----------
+// 房間資料一直沒動作就會永遠留在資料庫裡，這裡順手把整組房間（玩家/投票/鎖）都清掉。
+async function deleteRoomBestEffort(ref){
+  try{
+    const pCol = ref.collection("players");
+    const vCol = ref.collection("votes");
+    const lCol = ref.collection("_locks");
+    const [pSnap, vSnap, lSnap] = await Promise.all([
+      pCol.get().catch(()=>({docs:[]})),
+      vCol.get().catch(()=>({docs:[]})),
+      lCol.get().catch(()=>({docs:[]})),
+    ]);
+    await Promise.all([
+      ...pSnap.docs.map(dd=>pCol.doc(dd.id).delete().catch(()=>{})),
+      ...vSnap.docs.map(dd=>vCol.doc(dd.id).delete().catch(()=>{})),
+      ...lSnap.docs.map(dd=>lCol.doc(dd.id).delete().catch(()=>{})),
+    ]);
+    await ref.delete();
+  }catch(e){}
+}
+function touchActivity(){
+  if(roomRef) roomRef.update({lastActivityAt: Date.now()}).catch(()=>{});
+}
+
 function pickQuestion(excludeIdx, enabledCategories){
   const pool = getPool(enabledCategories);
   if(pool.length===0) return {idx:-1, pool};
@@ -423,7 +486,19 @@ let pollTimer=null;
 let roomData=null, playersData=[], votesData=[], customQuestionsData=[];
 let joinError = "";
 let homeTab="create", homeName="", homeCode="", homeAvatar=randomAvatar();
+// 分享出去的連結會帶 ?code=XXXX，開啟時直接幫忙切到「加入房間」分頁並帶入代碼。
+try{
+  const _params = new URLSearchParams(location.search);
+  const _sharedCode = (_params.get("code")||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4);
+  if(_sharedCode){ homeTab = "join"; homeCode = _sharedCode; }
+}catch(e){}
 let tickTimer=null;
+// 房間超過這麼久沒有任何動作，視為過期，加入時會被擋下並順手清掉舊資料。
+const ROOM_EXPIRE_MS = 12*60*60*1000;
+let expireCleanupDone = false;
+let soundEnabled = (function(){ try{ return localStorage.getItem("telepathySound") !== "off"; }catch(e){ return true; } })();
+let audioCtx = null;
+let soundedRound = null;
 let voteBusy=false, resolveBusy=false;
 
 const app = document.getElementById("app");
@@ -432,6 +507,7 @@ function render(){
   if(!identity){ renderHome(); return; }
   if(!roomData){ renderConnecting(); return; }
   if(!roomData.exists){ renderGone(); return; }
+  if(roomData.lastActivityAt && (Date.now()-roomData.lastActivityAt > ROOM_EXPIRE_MS)){ renderExpired(); return; }
   const me = playersData.find(p=>p.id===identity.playerId);
   if(!me){ renderRejoining(); return; }
   const hostId = playersData.length ? playersData.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0].id : null;
@@ -485,6 +561,11 @@ function renderRejoining(){
   app.innerHTML = `<div class="card" style="text-align:center;"><p>你已不在這個房間裡了。</p><button class="btn-secondary" id="backBtn">回首頁</button></div>`;
   document.getElementById("backBtn").onclick = leaveToHome;
 }
+function renderExpired(){
+  if(!expireCleanupDone && roomRef){ expireCleanupDone = true; deleteRoomBestEffort(roomRef); }
+  app.innerHTML = `<div class="card" style="text-align:center;"><p>這個房間已經太久沒有動靜，已經自動關閉了。</p><button class="btn-secondary" id="backBtn">回首頁</button></div>`;
+  document.getElementById("backBtn").onclick = leaveToHome;
+}
 
 let settingsModalOpen = false;
 let bankModalOpen = false;
@@ -507,11 +588,20 @@ function renderLobby(isHost){
         <span class="mono" style="font-size:11px;color:var(--muted);letter-spacing:.2em;">房號</span>
         <span class="code">${esc(identity.code)}</span>
         <button class="copybtn" id="copyBtn">複製</button>
+        <button class="copybtn" id="shareBtn">分享</button>
       </div>
       <p class="helper">把這串代碼傳給朋友，請他們打開同一頁輸入</p>
       <label style="margin-top:6px;">玩家（${players.length}）· 已準備 ${readyCount}/${players.length}</label>
       <ul class="playerlist">
-        ${players.map(p=>`<li><span class="pname">${p.ready?'✅':'⏳'} ${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''} ${p.id===hostId?'<span class="host">HOST</span>':''}</span>${p.id===identity.playerId?`<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`:`<span class="strikes">${p.strikes||0}</span>`}</li>`).join("")}
+        ${players.map(p=>{
+          const isMe = p.id===identity.playerId;
+          const rightSide = isMe
+            ? `<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`
+            : (isHost
+                ? `<span class="prow-actions"><span class="strikes">${p.strikes||0}</span><button class="kickbtn" data-kick="${p.id}">踢除</button></span>`
+                : `<span class="strikes">${p.strikes||0}</span>`);
+          return `<li><span class="pname">${p.ready?'✅':'⏳'} ${avatarOf(p)} ${esc(p.name)} ${isMe?'<span class="you">YOU</span>':''} ${p.id===hostId?'<span class="host">HOST</span>':''}</span>${rightSide}</li>`;
+        }).join("")}
       </ul>
       ${lobbyAvatarPickOpen ? `
         <div class="avatargrid" style="margin-top:12px;">
@@ -525,6 +615,7 @@ function renderLobby(isHost){
       <button class="iconbtn" id="openHelpBtn"><span class="iconbtn-emoji">❓</span><span>玩法</span></button>
       <button class="iconbtn" id="openSettingsBtn"><span class="iconbtn-emoji">⚙️</span><span>設定</span></button>
       <button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>
+      <button class="iconbtn" id="toggleSoundBtn"><span class="iconbtn-emoji">${soundEnabled?'🔊':'🔇'}</span><span>音效</span></button>
     </div>
 
     ${isHost ? `
@@ -538,8 +629,27 @@ function renderLobby(isHost){
     ${helpModalOpen ? renderHelpModal() : ``}
   `;
   document.getElementById("copyBtn").onclick = ()=>{ navigator.clipboard && navigator.clipboard.writeText(identity.code).catch(()=>{}); };
+  document.getElementById("shareBtn").onclick = ()=>{
+    const shareUrl = `${location.origin}${location.pathname}?code=${identity.code}`;
+    const shareText = `一起來玩心電感應吧！房號 ${identity.code}\n${shareUrl}`;
+    if(navigator.share){
+      navigator.share({title:"心電感應", text:`一起來玩心電感應吧！房號 ${identity.code}`, url: shareUrl}).catch(()=>{});
+    } else if(navigator.clipboard){
+      navigator.clipboard.writeText(shareText).catch(()=>{});
+    }
+  };
   document.getElementById("leaveBtn").onclick = doLeave;
   document.getElementById("readyBtn").onclick = toggleReady;
+  document.getElementById("toggleSoundBtn").onclick = ()=>{
+    setSoundEnabled(!soundEnabled);
+    if(soundEnabled) beep(660,90,"sine");
+    render();
+  };
+  if(isHost){
+    document.querySelectorAll("[data-kick]").forEach(b=>{
+      b.onclick = ()=> doKick(b.dataset.kick);
+    });
+  }
   const changeAvatarBtn = document.getElementById("changeAvatarBtn");
   if(changeAvatarBtn) changeAvatarBtn.onclick = ()=>{ lobbyAvatarPickOpen = !lobbyAvatarPickOpen; render(); };
   document.querySelectorAll("[data-avatar2]").forEach(b=>{
@@ -864,8 +974,14 @@ function startRevealAnim(round){
   clearRevealTimers();
   revealAnimRound = round;
   revealStage = 0;
+  // 翻牌的 CSS 動畫要 0.55 秒才轉完，原本每 420ms 就翻下一張，
+  // 會在前一張還沒轉完時就疊上新的翻轉，看起來像在「搶拍」、一閃而過。
+  // 這裡把起始停頓跟每張間隔都拉長到比動畫時間長一點，讓每張牌都轉完才翻下一張，
+  // 同時也讓答題畫面切過來後有個喘息的瞬間，不會覺得畫面在硬切。
+  const startDelay = 700;
+  const stepDelay = 650;
   LETTERS.forEach((_,i)=>{
-    revealTimers.push(setTimeout(()=>{ revealStage = i+1; render(); }, 420*(i+1)));
+    revealTimers.push(setTimeout(()=>{ revealStage = i+1; render(); }, startDelay + stepDelay*i));
   });
 }
 
@@ -902,6 +1018,11 @@ function renderReveal(isHost){
   const struckSet = new Set(last.struckIds||[]);
   const noAnswer = (last.noAnswerIds||[]).map(id=> avatarOf(playersData.find(p=>p.id===id)) + " " + ((playersData.find(p=>p.id===id)||{}).name || "?"));
   const doneFlipping = revealStage >= LETTERS.length;
+  if(doneFlipping && soundedRound !== last.round){
+    soundedRound = last.round;
+    const iWasOut = struckSet.has(identity.playerId) || (last.noAnswerIds||[]).includes(identity.playerId);
+    playResultSound(!iWasOut);
+  }
 
   app.innerHTML = `
     <div class="card">
@@ -1030,7 +1151,7 @@ async function doCreate(){
   try{
     await ref.set({
       phase:"lobby", round:0, settings:{duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"},
-      currentQuestion:null, roundEndAt:null, revealLog:[], losers:[], lastQIdx:-1, createdAt: Date.now()
+      currentQuestion:null, roundEndAt:null, revealLog:[], losers:[], lastQIdx:-1, createdAt: Date.now(), lastActivityAt: Date.now()
     });
     await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, ready:false });
   }catch(e){ joinError="建立房間失敗，請再試一次"; render(); return; }
@@ -1050,9 +1171,17 @@ async function doJoin(){
   const ref = d.doc(`telepathyrooms/${code}`);
   const snap = await ref.get().catch(()=>({exists:false}));
   if(!snap.exists){ joinError = "找不到這個房間，確認代碼是否正確"; render(); return; }
+  const rd = snap.data()||{};
+  const lastActive = rd.lastActivityAt || rd.createdAt || 0;
+  if(lastActive && (Date.now()-lastActive > ROOM_EXPIRE_MS)){
+    joinError = "這個房間已經太久沒有動靜、過期了，請朋友開一個新房間";
+    deleteRoomBestEffort(ref);
+    render(); return;
+  }
   const pid = uid();
   try{ await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, ready:false }); }
   catch(e){ joinError="加入房間失敗，請再試一次"; render(); return; }
+  try{ await ref.update({lastActivityAt: Date.now()}); }catch(e){}
   identity = {code, playerId: pid, name};
   saveIdentity(identity);
   connectRoom();
@@ -1063,6 +1192,8 @@ function connectRoom(){
   roomRef = d.doc(`telepathyrooms/${identity.code}`);
   playersCol = roomRef.collection("players");
   roomData = null; playersData = [];
+  expireCleanupDone = false;
+  soundedRound = null;
   if(unsubRoom) unsubRoom();
   if(unsubPlayers) unsubPlayers();
   unsubRoom = roomRef.onSnapshot(snap=>{
@@ -1156,7 +1287,7 @@ async function doStartGame(){
     clearRevealTimers(); revealAnimRound = null; revealStage = 0;
     await roomRef.update({
       phase:"question", round:1, currentQuestion:{q, options},
-      roundEndAt: Date.now() + settings.duration*1000, revealLog:[], losers:[], lastQIdx: idx
+      roundEndAt: Date.now() + settings.duration*1000, revealLog:[], losers:[], lastQIdx: idx, lastActivityAt: Date.now()
     });
   }catch(e){}
 }
@@ -1168,6 +1299,8 @@ async function castVote(choice){
   const voteId = `${roomData.round}_${identity.playerId}`;
   try{
     await votesCol.doc(voteId).set({round: roomData.round, playerId: identity.playerId, choice, ts: Date.now()});
+    playVoteSound();
+    touchActivity();
   }catch(e){}
   voteBusy = false;
 }
@@ -1226,9 +1359,9 @@ async function tryResolve(){
     log.push({round: fd.round, q: fd.currentQuestion.q, options: fd.currentQuestion.options, byOption, struckIds, noAnswerIds});
 
     if(losers.length>0){
-      await roomRef.update({phase:"ended", losers, revealLog: log});
+      await roomRef.update({phase:"ended", losers, revealLog: log, lastActivityAt: Date.now()});
     } else {
-      await roomRef.update({phase:"reveal", revealLog: log});
+      await roomRef.update({phase:"reveal", revealLog: log, lastActivityAt: Date.now()});
     }
   }catch(e){}
   resolveBusy = false;
@@ -1243,7 +1376,7 @@ async function doNextQuestion(){
   try{
     await roomRef.update({
       phase:"question", round:nextRound, currentQuestion:{q, options},
-      roundEndAt: Date.now() + settings.duration*1000, lastQIdx: idx
+      roundEndAt: Date.now() + settings.duration*1000, lastQIdx: idx, lastActivityAt: Date.now()
     });
   }catch(e){}
 }
@@ -1263,7 +1396,7 @@ async function doRematch(){
   try{
     await clearAllVotes();
     await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({strikes:0, ready:false})));
-    await roomRef.update({phase:"lobby", round:0, currentQuestion:null, roundEndAt:null, revealLog:[], losers:[]});
+    await roomRef.update({phase:"lobby", round:0, currentQuestion:null, roundEndAt:null, revealLog:[], losers:[], lastActivityAt: Date.now()});
   }catch(e){}
 }
 
@@ -1271,7 +1404,14 @@ async function toggleReady(){
   try{
     const me = playersData.find(p=>p.id===identity.playerId);
     await playersCol.doc(identity.playerId).update({ready: !(me && me.ready)});
+    touchActivity();
   }catch(e){}
+}
+
+// 房主踢除某位玩家：直接把對方的玩家文件刪掉，
+// 對方的畫面偵測到自己不在玩家名單裡（render() 裡的 !me 判斷）就會自動顯示「已不在房間」。
+async function doKick(id){
+  try{ await playersCol.doc(id).delete(); }catch(e){}
 }
 
 // 把種子/修正流程中遇到的第一個錯誤顯示在題庫畫面上（例如 Firestore 規則沒開放寫入權限），方便排查。
