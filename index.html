@@ -73,6 +73,13 @@ button:disabled{opacity:.4; cursor:not-allowed;}
 .tab{flex:1; text-align:center; padding:10px; border-radius:12px; font-weight:800; font-size:14px; border:1.5px solid var(--line); color:var(--muted); cursor:pointer;}
 .tab.active{background:var(--ink); color:var(--surface); border-color:var(--ink);}
 
+.gamepicker{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+.gamecard{text-align:left; padding:14px 12px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); display:flex; flex-direction:column; gap:4px; min-height:92px; justify-content:center;}
+.gamecard.on{background:linear-gradient(150deg, var(--accent), #c9ab98); border-color:var(--accent); color:var(--accent-ink);}
+.gamecard .gc-emoji{font-size:22px;}
+.gamecard .gc-title{font-weight:800; font-size:14.5px;}
+.gamecard .gc-desc{font-size:11.5px; opacity:.8; line-height:1.35;}
+
 .playerlist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
 .playerlist li{display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 13px;}
 .pname{font-weight:800; display:flex; align-items:center; gap:8px;}
@@ -141,6 +148,7 @@ select{
 .error{color:var(--warn); font-size:13px; margin:-6px 0 12px; min-height:1em; font-weight:700;}
 .helper{color:var(--muted); font-size:13px; text-align:center; margin:0 0 14px;}
 .codeshare{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
+.codeshare.clear-badge{margin-top:22px;}
 .codeshare .code{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:28px; letter-spacing:.22em; color:var(--accent);}
 .copybtn{width:auto; padding:8px 12px; font-size:12px; background:var(--surface-2); color:var(--ink); border:1px solid var(--line); border-radius:10px;}
 .spin{display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:6px;}
@@ -148,6 +156,7 @@ select{
 @media (prefers-reduced-motion: reduce){
   .spin{animation:none;} button{transition:none;} .flipcard-inner{transition:none;} .barfill{transition:none;}
   .revealfade, .noanswer{animation:none; opacity:1; transform:none;}
+  .flipface.back.struck-blink{animation:none;}
 }
 
 .timerzone{display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:14px;}
@@ -168,6 +177,16 @@ select{
 .optbtn .txt{font-weight:700; font-size:14.5px; line-height:1.35;}
 .optbtn.picked{background:linear-gradient(150deg, var(--accent), #c9ab98); border-color:var(--accent); color:var(--accent-ink);}
 .optbtn.picked .letter{color:var(--accent-ink); opacity:.85;}
+
+.mlranklist{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
+.mlrankitem{display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:10px; background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:9px 12px;}
+.mlrankitem.base{border-color:var(--accent);}
+.mlrankidx{font-family:"JetBrains Mono",monospace; font-weight:800; color:var(--muted); text-align:center;}
+.mlrankname{font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.mlrankbtns{display:flex; gap:4px;}
+.mlarrow{width:28px; height:28px; padding:0; border-radius:8px; background:var(--surface); color:var(--ink); border:1px solid var(--line); font-size:13px; flex:none;}
+.mlarrow:disabled{opacity:.35;}
+.mlscale{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin:2px 2px 0; font-weight:700;}
 
 .answeredrow{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:16px;}
 .achip{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; background:var(--surface-2); border:1px solid var(--line); color:var(--muted);}
@@ -190,6 +209,8 @@ select{
 .flipface.front{align-items:center; justify-content:center; font-family:"Orbitron",monospace; font-size:24px; font-weight:800; color:var(--muted);}
 .flipface.back{transform:rotateY(180deg); justify-content:center;}
 .flipface.back.struck{border-color:var(--warn); background:color-mix(in srgb, var(--warn) 12%, var(--surface-2));}
+@keyframes struckBlink{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--warn) 55%, transparent);} 50%{box-shadow:0 0 0 7px color-mix(in srgb, var(--warn) 0%, transparent);}}
+.flipface.back.struck-blink{animation:struckBlink .6s ease-in-out 3;}
 .revealfade{opacity:0; animation:fadein .4s ease forwards;}
 @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
 
@@ -199,7 +220,18 @@ select{
 .barrow.me .barlabel{color:var(--accent);}
 .bartrack{height:10px; border-radius:6px; background:var(--surface-2); border:1px solid var(--line); overflow:hidden;}
 .barfill{height:100%; border-radius:6px; background:linear-gradient(90deg, var(--accent), #c9ab98); transition:width .6s cubic-bezier(.2,.6,.3,1);}
+.barfill.winner{background:linear-gradient(90deg, var(--warn), #f0c98a);}
 .barvalue{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:12.5px; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums;}
+
+.mlanswerkey{background:color-mix(in srgb, var(--accent) 12%, var(--surface-2)); border:1.5px solid var(--accent); border-radius:12px; padding:12px; margin-top:10px;}
+.mlrankrow{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+.mlrankchip{display:inline-flex; align-items:center; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:4px 9px; font-size:12px; font-weight:700; color:var(--muted);}
+.mlrankchip.match{background:color-mix(in srgb, var(--safe) 22%, transparent); border-color:var(--safe); color:var(--safe);}
+.mlcomparewrap{display:flex; flex-direction:column; gap:12px; margin-top:14px;}
+.mlcomparerow{border:1.5px solid var(--line); border-radius:12px; padding:10px 12px; background:var(--surface-2);}
+.mlcomparerow.me{border-color:var(--accent);}
+.mlcomparehead{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:6px; font-weight:700;}
+.mlcomparehead .cnt{font-family:"JetBrains Mono",monospace; color:var(--accent); font-weight:800;}
 
 .losebanner{text-align:center; padding:26px 10px; border-radius:18px; margin-bottom:16px; background:linear-gradient(160deg, color-mix(in srgb, var(--warn) 20%, var(--surface)), var(--surface)); border:1.5px solid var(--warn);}
 .losebanner h2{font-size:24px; color:var(--warn); background:none; -webkit-text-fill-color:currentColor;}
@@ -236,8 +268,8 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v1.17";
-const APP_UPDATED = "2026-09-09";
+const APP_VERSION = "v2.2";
+const APP_UPDATED = "2026-09-14";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
   {id:"travel", label:"旅行"},
@@ -255,6 +287,74 @@ const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.id, c.label]));
 const ALL_CATEGORY_IDS = CATEGORIES.map(c=>c.id);
 const AVATARS = ["🦊","🐱","🐶","🐼","🐨","🐸","🦁","🐵","🐰","🐯","🦄","🐙","🦉","🐢","🐧","🦋","🐻","🐮","🐷","🦖"];
 function randomAvatar(){ return AVATARS[Math.floor(Math.random()*AVATARS.length)]; }
+
+// 「誰最可能」的題目：不需要主角/選項，每題就是丟一句敘述，大家投票選房間裡的某個人。
+const MOST_LIKELY_PROMPTS = [
+  "最有可能半夜傳訊息找朋友聊天的人",
+  "最有可能忘記帶鑰匙或錢包出門的人",
+  "最有可能中樂透後低調不說的人",
+  "最有可能遲到卻理由一堆的人",
+  "最有可能偷偷存錢去做一件瘋狂事的人",
+  "最有可能在聚會上突然消失的人",
+  "最有可能把秘密講出去的人",
+  "最有可能三十歲後才轉行的人",
+  "最有可能半夜還在滑手機的人",
+  "最有可能買東西從不看價錢的人",
+  "最有可能被路人問路的人",
+  "最有可能在KTV搶麥的人",
+  "最有可能忘記朋友生日的人",
+  "最有可能最先結婚的人",
+  "最有可能最晚結婚的人",
+  "最有可能一個人去旅行的人",
+  "最有可能把工作辭掉去環遊世界的人",
+  "最有可能在群組已讀不回的人",
+  "最有可能半夜餓了會爬起來煮泡麵的人",
+  "最有可能被騙但還不知道的人",
+  "最有可能養很多寵物的人",
+  "最有可能哭點很低的人",
+  "最有可能吵架時先道歉的人",
+  "最有可能記得所有人生日的人",
+  "最有可能突然搬去別的城市生活的人",
+  "最有可能開直播被笑場的人",
+  "最有可能一年沒運動的人",
+  "最有可能敢一個人去看恐怖片的人",
+  "最有可能私底下很有才藝但沒讓大家知道的人",
+  "最有可能欠錢不還（然後忘記）的人",
+  "最有可能明明很累還撐著陪朋友聊天的人",
+  "最有可能買很貴的東西卻捨不得用的人",
+  "最有可能睡過頭錯過重要行程的人",
+  "最有可能同時談好幾個興趣但都學一半的人",
+  "最有可能是這群人裡最會忍耐的人",
+  "最有可能突然翻臉的人",
+  "最有可能是這群人裡最會賺錢的人",
+  "最有可能被求婚會當場愣住的人",
+  "最有可能默默觀察大家、其實什麼都知道的人",
+  "最有可能十年後變得完全不一樣的人"
+];
+// 用 usedIdx（這一局已經抽過的題目索引）排除重複，抽完整組才重新洗牌。
+function pickMLPrompt(usedIdx){
+  const usedSet = new Set(usedIdx||[]);
+  let candidates = MOST_LIKELY_PROMPTS.map((_,i)=>i).filter(i=>!usedSet.has(i));
+  let resetUsed = false;
+  if(candidates.length===0){
+    candidates = MOST_LIKELY_PROMPTS.map((_,i)=>i);
+    resetUsed = true;
+  }
+  const idx = candidates[Math.floor(Math.random()*candidates.length)];
+  return {idx, resetUsed};
+}
+// 挑本輪「誰最可能」的基準玩家：輪流讓每個人都當過基準，玩家都輪過一次後才重新洗牌。
+function pickMLBase(playerIds, usedIds){
+  const usedSet = new Set(usedIds||[]);
+  let candidates = playerIds.filter(id=>!usedSet.has(id));
+  let resetUsed = false;
+  if(candidates.length===0){
+    candidates = playerIds.slice();
+    resetUsed = true;
+  }
+  const id = candidates[Math.floor(Math.random()*candidates.length)];
+  return {id, resetUsed};
+}
 function avatarOf(p){ return (p && p.avatar) || "🙂"; }
 const QUESTIONS = [
 ["你覺得如果PP中了一億，會先做什麼？",["環遊世界", "買房子", "捐一半出去", "存起來不動"],"work_money"],
@@ -470,12 +570,20 @@ function touchActivity(){
   if(roomRef) roomRef.update({lastActivityAt: Date.now()}).catch(()=>{});
 }
 
-function pickQuestion(excludeIdx, enabledCategories){
+// 用 usedKeys（這一局已經抽過的題目 id）排除掉抽過的題目，同一局不會再抽到同一題。
+// 如果選的類型池子小、整組都抽完了，就重新洗牌繼續玩（resetUsed 會告訴呼叫端把已抽清單重新算）。
+function pickQuestion(usedKeys, enabledCategories){
   const pool = getPool(enabledCategories);
-  if(pool.length===0) return {idx:-1, pool};
-  let i;
-  do{ i = Math.floor(Math.random()*pool.length); }while(i===excludeIdx && pool.length>1);
-  return {idx:i, pool};
+  if(pool.length===0) return {idx:-1, pool, resetUsed:false};
+  const usedSet = new Set(usedKeys||[]);
+  let candidates = pool.map((item,i)=>i).filter(i=>!usedSet.has(pool[i].key));
+  let resetUsed = false;
+  if(candidates.length===0){
+    candidates = pool.map((item,i)=>i);
+    resetUsed = true;
+  }
+  const idx = candidates[Math.floor(Math.random()*candidates.length)];
+  return {idx, pool, resetUsed};
 }
 
 let db=null;
@@ -486,6 +594,9 @@ let pollTimer=null;
 let roomData=null, playersData=[], votesData=[], customQuestionsData=[];
 let joinError = "";
 let homeTab="create", homeName="", homeCode="", homeAvatar=randomAvatar();
+let homeGameType = "telepathy"; // 開新房間時選的遊戲；加入房間時不用選，遊戲類型由房主的房間決定
+let mlRevealAnimRound = null, mlRevealReady = false, mlSoundedRound = null;
+let mlRankOrder = null, mlRankOrderRound = null; // 「誰最可能」排序中的本地暫存排序（送出前不寫進資料庫）
 // 分享出去的連結會帶 ?code=XXXX，開啟時直接幫忙切到「加入房間」分頁並帶入代碼。
 try{
   const _params = new URLSearchParams(location.search);
@@ -513,8 +624,16 @@ function render(){
   const hostId = playersData.length ? playersData.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0].id : null;
   const isHost = hostId === identity.playerId;
   const phase = roomData.phase;
+  const gameType = roomData.gameType || "telepathy";
   manageTicking(phase);
   manageVoteSub(phase);
+  if(gameType==="mostlikely"){
+    if(phase==="lobby") return renderLobby(isHost);
+    if(phase==="question") return renderMLQuestion(me, isHost);
+    if(phase==="reveal") return renderMLReveal(isHost);
+    if(phase==="ended") return renderMLEnded(isHost);
+    return renderConnecting();
+  }
   if(phase==="lobby") return renderLobby(isHost);
   if(phase==="question") return renderQuestion(me, isHost);
   if(phase==="reveal") return renderReveal(isHost);
@@ -529,6 +648,21 @@ function renderHome(){
         <div class="tab ${homeTab==='create'?'active':''}" data-tab="create">開新房間</div>
         <div class="tab ${homeTab==='join'?'active':''}" data-tab="join">加入房間</div>
       </div>
+      ${homeTab==='create' ? `
+        <label>選擇遊戲</label>
+        <div class="gamepicker">
+          <button class="gamecard ${homeGameType==='telepathy'?'on':''}" data-game="telepathy">
+            <span class="gc-emoji">🔮</span>
+            <span class="gc-title">心電感應</span>
+            <span class="gc-desc">大家一起選，跟別人不一樣就扣分</span>
+          </button>
+          <button class="gamecard ${homeGameType==='mostlikely'?'on':''}" data-game="mostlikely">
+            <span class="gc-emoji">🙋</span>
+            <span class="gc-title">誰最可能</span>
+            <span class="gc-desc">選出全場最像的那個人</span>
+          </button>
+        </div>
+      ` : ``}
       <label>你的暱稱</label>
       <input type="text" id="nameInput" maxlength="10" placeholder="例如：小八" value="${esc(homeName)}">
       ${homeTab==='join' ? `
@@ -542,9 +676,12 @@ function renderHome(){
       <div class="error">${esc(joinError)}</div>
       <button class="btn-primary" id="goBtn">${homeTab==='create' ? '建立房間' : '加入房間'}</button>
     </div>
-    <p class="helper">2 人以上就能玩，選到跟別人不一樣的人會被扣分。</p>
+    <p class="helper">${homeTab==='create'
+      ? (homeGameType==='mostlikely' ? '2 人以上就能玩，猜猜大家心裡最可能是誰。' : '2 人以上就能玩，選到跟別人不一樣的人會被扣分。')
+      : '輸入房號就能加入朋友的房間，遊戲類型由房主決定。'}</p>
   `;
   document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ homeTab=t.dataset.tab; joinError=""; render(); });
+  document.querySelectorAll("[data-game]").forEach(b=> b.onclick = ()=>{ homeGameType = b.dataset.game; render(); });
   document.getElementById("nameInput").oninput = e=>homeName=e.target.value;
   const codeEl = document.getElementById("codeInput");
   if(codeEl) codeEl.oninput = e=>homeCode = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4);
@@ -572,7 +709,9 @@ let bankModalOpen = false;
 
 function renderLobby(isHost){
   const players = playersData;
-  const settings = roomData.settings || {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"};
+  const gameType = roomData.gameType || "telepathy";
+  const isML = gameType === "mostlikely";
+  const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
   const enabledCats = new Set(settings.enabledCategories && settings.enabledCategories.length ? settings.enabledCategories : ALL_CATEGORY_IDS);
   const mode = settings.mode || "normal";
   const hostId = players.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.id;
@@ -583,8 +722,8 @@ function renderLobby(isHost){
   const myReady = !!(me && me.ready);
   app.innerHTML = `
     <div class="card">
-      <div class="badge purple">LOBBY</div>
-      <div class="codeshare">
+      <div class="badge purple">LOBBY · ${isML?'誰最可能':'心電感應'}</div>
+      <div class="codeshare clear-badge">
         <span class="mono" style="font-size:11px;color:var(--muted);letter-spacing:.2em;">房號</span>
         <span class="code">${esc(identity.code)}</span>
         <button class="copybtn" id="copyBtn">複製</button>
@@ -595,11 +734,14 @@ function renderLobby(isHost){
       <ul class="playerlist">
         ${players.map(p=>{
           const isMe = p.id===identity.playerId;
+          const scoreSpan = isML
+            ? `<span class="strikes">🎯 ${p.mlScore||0}</span>`
+            : `<span class="strikes">${p.strikes||0}</span>`;
           const rightSide = isMe
             ? `<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`
             : (isHost
-                ? `<span class="prow-actions"><span class="strikes">${p.strikes||0}</span><button class="kickbtn" data-kick="${p.id}">踢除</button></span>`
-                : `<span class="strikes">${p.strikes||0}</span>`);
+                ? `<span class="prow-actions">${scoreSpan}<button class="kickbtn" data-kick="${p.id}">踢除</button></span>`
+                : scoreSpan);
           return `<li><span class="pname">${p.ready?'✅':'⏳'} ${avatarOf(p)} ${esc(p.name)} ${isMe?'<span class="you">YOU</span>':''} ${p.id===hostId?'<span class="host">HOST</span>':''}</span>${rightSide}</li>`;
         }).join("")}
       </ul>
@@ -614,7 +756,7 @@ function renderLobby(isHost){
     <div class="iconrow">
       <button class="iconbtn" id="openHelpBtn"><span class="iconbtn-emoji">❓</span><span>玩法</span></button>
       <button class="iconbtn" id="openSettingsBtn"><span class="iconbtn-emoji">⚙️</span><span>設定</span></button>
-      <button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>
+      ${isML ? `` : `<button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>`}
       <button class="iconbtn" id="toggleSoundBtn"><span class="iconbtn-emoji">${soundEnabled?'🔊':'🔇'}</span><span>音效</span></button>
     </div>
 
@@ -624,16 +766,17 @@ function renderLobby(isHost){
     ` : `<p class="helper">等待房主 <b>${esc(players.find(p=>p.id===hostId)?.name||'')}</b> 開始遊戲…</p>`}
     <button class="btn-ghost" id="leaveBtn">離開房間</button>
 
-    ${settingsModalOpen ? renderSettingsModal(isHost, settings, enabledCats, mode) : ``}
-    ${bankModalOpen ? renderBankModal() : ``}
-    ${helpModalOpen ? renderHelpModal() : ``}
+    ${settingsModalOpen ? (isML ? renderMLSettingsModal(isHost, settings) : renderSettingsModal(isHost, settings, enabledCats, mode)) : ``}
+    ${bankModalOpen && !isML ? renderBankModal() : ``}
+    ${helpModalOpen ? (isML ? renderMLHelpModal() : renderHelpModal()) : ``}
   `;
   document.getElementById("copyBtn").onclick = ()=>{ navigator.clipboard && navigator.clipboard.writeText(identity.code).catch(()=>{}); };
   document.getElementById("shareBtn").onclick = ()=>{
+    const gameName = isML ? "誰最可能" : "心電感應";
     const shareUrl = `${location.origin}${location.pathname}?code=${identity.code}`;
-    const shareText = `一起來玩心電感應吧！房號 ${identity.code}\n${shareUrl}`;
+    const shareText = `一起來玩${gameName}吧！房號 ${identity.code}\n${shareUrl}`;
     if(navigator.share){
-      navigator.share({title:"心電感應", text:`一起來玩心電感應吧！房號 ${identity.code}`, url: shareUrl}).catch(()=>{});
+      navigator.share({title:gameName, text:`一起來玩${gameName}吧！房號 ${identity.code}`, url: shareUrl}).catch(()=>{});
     } else if(navigator.clipboard){
       navigator.clipboard.writeText(shareText).catch(()=>{});
     }
@@ -662,13 +805,14 @@ function renderLobby(isHost){
   });
   document.getElementById("openHelpBtn").onclick = ()=>{ helpModalOpen = true; render(); };
   document.getElementById("openSettingsBtn").onclick = ()=>{ settingsModalOpen = true; render(); };
-  document.getElementById("openBankBtn").onclick = ()=>{ bankModalOpen = true; render(); };
+  const openBankBtn = document.getElementById("openBankBtn");
+  if(openBankBtn) openBankBtn.onclick = ()=>{ bankModalOpen = true; render(); };
   if(isHost){
-    document.getElementById("startBtn").onclick = doStartGame;
+    document.getElementById("startBtn").onclick = isML ? doStartML : doStartGame;
   }
-  if(settingsModalOpen) wireSettingsModal(isHost, settings);
-  if(bankModalOpen) wireQuestionBank();
-  if(helpModalOpen) wireHelpModal();
+  if(settingsModalOpen){ if(isML) wireMLSettingsModal(isHost, settings); else wireSettingsModal(isHost, settings); }
+  if(bankModalOpen && !isML) wireQuestionBank();
+  if(helpModalOpen){ if(isML) wireMLHelpModal(); else wireHelpModal(); }
 }
 let lobbyAvatarPickOpen = false;
 
@@ -788,6 +932,87 @@ function wireSettingsModal(isHost, settings){
       updateSettings({enabledCategories: ALL_CATEGORY_IDS.filter(c=>current.has(c))});
     };
   });
+}
+
+function renderMLHelpModal(){
+  return `
+    <div class="modalbackdrop" id="helpBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>❓ 玩法說明</h2>
+          <button class="modalclose" id="helpClose">✕</button>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--safe);">目標</div>
+          <p class="helper" style="text-align:left; margin:0;">每一題會丟出一句敘述，例如「最有可能半夜傳訊息找朋友聊天的人」。每一輪會輪流指定一位玩家當「基準者」🎯。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--accent);">怎麼玩</div>
+          <p class="helper" style="text-align:left; margin:0;">包含基準者在內，所有人都要把全部玩家從「最不可能」排到「最可能」，可以自由拖拉調整順序，排好再送出，不用照順序一個一個選。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--warn);">計分</div>
+          <p class="helper" style="text-align:left; margin:0;">公布時會用基準者的排序當標準答案，你的排序和基準者同一個位置排同一個人，就算猜中該位置、加一分；猜中越多分數越高，基準者本人這輪不計分。</p>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <div class="helptitle">結束</div>
+          <p class="helper" style="text-align:left; margin:0;">玩完房主設定的題數後遊戲結束，猜中位置數最多的人就是全場最強讀心者。</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireMLHelpModal(){
+  const helpClose = document.getElementById("helpClose");
+  if(helpClose) helpClose.onclick = ()=>{ helpModalOpen = false; render(); };
+  const helpBackdrop = document.getElementById("helpBackdrop");
+  if(helpBackdrop) helpBackdrop.onclick = (e)=>{ if(e.target.id==="helpBackdrop"){ helpModalOpen = false; render(); } };
+}
+
+function renderMLSettingsModal(isHost, settings){
+  const totalRounds = settings.totalRounds || 8;
+  return `
+    <div class="modalbackdrop" id="settingsBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>⚙️ 遊戲設定</h2>
+          <button class="modalclose" id="settingsClose">✕</button>
+        </div>
+        ${isHost ? `
+          <div class="settingsrow" style="border-top:none;">
+            <span>排序時間</span>
+            <div class="stepper">
+              <button id="durMinus">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus">+</button>
+            </div>
+          </div>
+          <div class="settingsrow">
+            <span>玩幾題</span>
+            <div class="stepper">
+              <button id="roundsMinus">−</button><span class="n">${totalRounds} 題</span><button id="roundsPlus">+</button>
+            </div>
+          </div>
+        ` : `
+          <div class="settingsrow" style="border-top:none;">
+            <span>排序時間</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${settings.duration} 秒</span>
+          </div>
+          <div class="settingsrow">
+            <span>玩幾題</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${totalRounds} 題</span>
+          </div>
+          <p class="helper" style="margin:16px 0 0;">只有房主可以調整這些設定。</p>
+        `}
+      </div>
+    </div>
+  `;
+}
+function wireMLSettingsModal(isHost, settings){
+  document.getElementById("settingsClose").onclick = ()=>{ settingsModalOpen = false; render(); };
+  document.getElementById("settingsBackdrop").onclick = (e)=>{ if(e.target.id==="settingsBackdrop"){ settingsModalOpen = false; render(); } };
+  if(!isHost) return;
+  document.getElementById("durMinus").onclick = ()=> updateSettings({duration: Math.max(15, settings.duration-5)});
+  document.getElementById("durPlus").onclick = ()=> updateSettings({duration: Math.min(60, settings.duration+5)});
+  const totalRounds = settings.totalRounds || 8;
+  document.getElementById("roundsMinus").onclick = ()=> updateSettings({totalRounds: Math.max(3, totalRounds-1)});
+  document.getElementById("roundsPlus").onclick = ()=> updateSettings({totalRounds: Math.min(20, totalRounds+1)});
 }
 
 function renderBankModal(){
@@ -932,10 +1157,14 @@ function renderQuestion(me, isHost){
   const dashoffset = C*(1-frac);
   const myVote = votesData.find(v=>v.playerId===identity.playerId && v.round===roomData.round);
   const votedIds = new Set(votesData.map(v=>v.playerId));
+  const target = (roomData.settings && roomData.settings.targetStrikes) || 3;
+  const myStrikes = (me && me.strikes) || 0;
+  const closeToOut = target>0 && myStrikes >= target-1;
 
   app.innerHTML = `
     <div class="card">
       <div class="badge purple">${(roomData.settings&&roomData.settings.mode==='majority')?'從眾':'一般'} · 第 ${roomData.round} 題</div>
+      <div class="mono" style="font-size:12px; font-weight:800; color:${closeToOut?'var(--warn)':'var(--muted)'};">你目前 ${myStrikes}/${target} 分</div>
       <div class="timerzone">
         <div class="ring-wrap">
           <svg viewBox="0 0 100 100">
@@ -1043,7 +1272,7 @@ function renderReveal(isHost){
           return `<div class="flipcard">
             <div class="flipcard-inner ${revealed?'flipped':''}">
               <div class="flipface front">${letter}</div>
-              <div class="flipface back ${isStruck?'struck':''}">
+              <div class="flipface back ${isStruck?'struck':''} ${(doneFlipping&&isStruck)?'struck-blink':''}">
                 <div class="tallyhead"><span class="opt">${letter}．${esc(opt)}</span><span class="cnt">${ids.length} 人</span></div>
                 <div class="tallynames">${chips || '沒有人選'}</div>
               </div>
@@ -1106,6 +1335,189 @@ function renderEnded(isHost){
   document.getElementById("leaveBtn").onclick = doLeave;
 }
 
+// ---------- 誰最可能：畫面 ----------
+
+function renderMLQuestion(me, isHost){
+  const duration = (roomData.settings && roomData.settings.duration) || 25;
+  const remain = remainingSeconds();
+  const remainInt = Math.ceil(remain);
+  const frac = Math.max(0, Math.min(1, remain/duration));
+  const R = 44, C = 2*Math.PI*R;
+  const dashoffset = C*(1-frac);
+  const myVote = votesData.find(v=>v.playerId===identity.playerId && v.round===roomData.round);
+  const votedIds = new Set(votesData.map(v=>v.playerId));
+  const totalRounds = (roomData.settings && roomData.settings.totalRounds) || 8;
+  const baseId = roomData.currentBaseId;
+  const iAmBase = baseId === identity.playerId;
+
+  if(mlRankOrderRound !== roomData.round){
+    mlRankOrderRound = roomData.round;
+    mlRankOrder = playersData.map(p=>p.id);
+  }
+  // 排序清單：已送出就顯示自己送出的排序（唯讀），否則顯示本地暫存的排序（可調整）。
+  const order = myVote ? myVote.ranking : (mlRankOrder || playersData.map(p=>p.id));
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge purple">誰最可能 · 第 ${roomData.round}/${totalRounds} 題</div>
+      <div class="timerzone">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 100 100">
+            <circle class="ring-bg" cx="50" cy="50" r="${R}"></circle>
+            <circle class="ring-fg ${frac<0.25?'low':''}" cx="50" cy="50" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${dashoffset}"></circle>
+          </svg>
+          <div class="ring-num digits">${remainInt}</div>
+        </div>
+      </div>
+      <div class="qtext">${esc(roomData.currentPrompt||"")}</div>
+      <p class="helper" style="margin:-4px 0 12px;">${iAmBase ? '🎯 這輪你是基準者，你的排序就是這一題的標準答案！' : `🎯 這輪基準者是 <b>${esc((playersData.find(p=>p.id===baseId)||{}).name||'')}</b>，猜猜看 ta 會怎麼排`}</p>
+      <div class="mlscale"><span>⬅ 最不可能</span><span>最可能 ➡</span></div>
+      <div class="mlranklist">
+        ${order.map((id,i)=>{
+          const p = playersData.find(pp=>pp.id===id);
+          if(!p) return "";
+          return `<div class="mlrankitem ${id===baseId?'base':''}">
+            <span class="mlrankidx">${i+1}</span>
+            <span class="mlrankname">${avatarOf(p)} ${esc(p.name)}${id===identity.playerId?' <span class="you">YOU</span>':''}${id===baseId?' 🎯':''}</span>
+            ${!myVote ? `<span class="mlrankbtns">
+              <button class="mlarrow" data-move="-1" data-id="${id}" ${i===0?'disabled':''}>▲</button>
+              <button class="mlarrow" data-move="1" data-id="${id}" ${i===order.length-1?'disabled':''}>▼</button>
+            </span>` : ``}
+          </div>`;
+        }).join("")}
+      </div>
+      ${!myVote ? `<button class="btn-primary" id="submitRankBtn" style="margin-top:14px;">確定送出排序</button>` : `<p class="helper" style="margin-top:14px;">✅ 已送出，等待其他人…</p>`}
+      <div class="answeredrow">
+        ${playersData.map(p=>`<span class="achip ${votedIds.has(p.id)?'done':''}">${avatarOf(p)} ${esc(p.name)}${votedIds.has(p.id)?' ✓':''}</span>`).join("")}
+      </div>
+    </div>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(!myVote){
+    document.querySelectorAll(".mlarrow").forEach(b=>{
+      b.onclick = ()=> mlMoveRank(b.dataset.id, parseInt(b.dataset.move,10));
+    });
+    document.getElementById("submitRankBtn").onclick = submitMLRanking;
+  }
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function mlMoveRank(id, dir){
+  if(!mlRankOrder) return;
+  const i = mlRankOrder.indexOf(id);
+  const j = i + dir;
+  if(i<0 || j<0 || j>=mlRankOrder.length) return;
+  const tmp = mlRankOrder[i]; mlRankOrder[i] = mlRankOrder[j]; mlRankOrder[j] = tmp;
+  render();
+}
+
+function startMLRevealAnim(round){
+  clearRevealTimers();
+  mlRevealAnimRound = round;
+  mlRevealReady = false;
+  // 跟心電感應一樣，答題畫面切到結算畫面之間留一點停頓，不會覺得畫面在硬切。
+  revealTimers.push(setTimeout(()=>{ mlRevealReady = true; render(); }, 700));
+}
+
+function renderMLReveal(isHost){
+  const log = (roomData.revealLog||[]);
+  const last = log[log.length-1];
+  if(!last){ renderConnecting(); return; }
+  if(mlRevealAnimRound !== last.round) startMLRevealAnim(last.round);
+  if(mlRevealReady && mlSoundedRound !== last.round){
+    mlSoundedRound = last.round;
+    beep(700,90,"sine");
+    setTimeout(()=>beep(900,110,"sine"), 90);
+    vibrate(15);
+  }
+  const totalRounds = (roomData.settings && roomData.settings.totalRounds) || 8;
+  const isLastRound = last.round >= totalRounds;
+  const baseP = playersData.find(p=>p.id===last.baseId);
+  const baseRanking = last.baseRanking;
+  const gainedById = last.gainedById || {};
+  const votesById = {};
+  (last.votes||[]).forEach(v=>{ votesById[v.playerId] = v.ranking; });
+  const others = playersData.filter(p=>p.id!==last.baseId).slice().sort((a,b)=>(gainedById[b.id]||0)-(gainedById[a.id]||0));
+  const N = playersData.length;
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">結果揭曉</div>
+      <div class="qtext" style="font-size:17px;">${esc(last.prompt)}</div>
+      ${!mlRevealReady ? `<p class="helper" style="text-align:center; margin-top:16px;"><span class="spin"></span>揭曉中…</p>` : (!baseRanking ? `
+        <p class="helper" style="margin-top:16px;">🎯 基準者 ${baseP?esc(baseP.name):''} 這輪沒有完成排序，這題不計分。</p>
+      ` : `
+        <div class="mlanswerkey">
+          <div class="helptitle" style="color:var(--accent);">🎯 基準：${baseP?avatarOf(baseP):''} ${baseP?esc(baseP.name):''} 的排序（最不可能 → 最可能）</div>
+          <div class="mlrankrow">
+            ${baseRanking.map((id,i)=>{
+              const p = playersData.find(pp=>pp.id===id);
+              return `<span class="mlrankchip">${i+1}. ${p?avatarOf(p):'🙂'} ${esc(p?p.name:'?')}</span>`;
+            }).join("")}
+          </div>
+        </div>
+        <div class="mlcomparewrap">
+          ${others.map(p=>{
+            const ranking = votesById[p.id];
+            const gained = gainedById[p.id]||0;
+            return `<div class="mlcomparerow ${p.id===identity.playerId?'me':''}">
+              <div class="mlcomparehead"><span>${avatarOf(p)} ${esc(p.name)}</span><span class="cnt">猜中 ${gained}/${N}</span></div>
+              ${ranking ? `<div class="mlrankrow">
+                ${ranking.map((id,i)=>{
+                  const pp = playersData.find(x=>x.id===id);
+                  const match = baseRanking[i]===id;
+                  return `<span class="mlrankchip ${match?'match':''}">${pp?avatarOf(pp):'🙂'} ${esc(pp?pp.name:'?')}</span>`;
+                }).join("")}
+              </div>` : `<p class="helper" style="margin:4px 0 0;">未完成排序</p>`}
+            </div>`;
+          }).join("")}
+        </div>
+      `)}
+    </div>
+    ${mlRevealReady ? (isHost ? `<button class="btn-primary" id="nextBtn">${isLastRound?'看總結':'繼續下一題'}</button>` : `<p class="helper">等待房主繼續</p>`) : ``}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(mlRevealReady && isHost) document.getElementById("nextBtn").onclick = isLastRound ? doEndML : doNextML;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderMLEnded(isHost){
+  const ranked = playersData.slice().sort((a,b)=>(b.mlScore||0)-(a.mlScore||0));
+  const topScore = ranked.length ? (ranked[0].mlScore||0) : 0;
+  const champions = topScore>0 ? ranked.filter(p=>(p.mlScore||0)===topScore) : [];
+  const rounds = (roomData.revealLog||[]).length;
+  const dateStr = new Date().toLocaleDateString("zh-TW",{month:"numeric",day:"numeric"});
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">總結</div>
+      <div style="text-align:center;">
+        <div class="mono" style="font-size:11px;color:var(--muted);letter-spacing:.18em;">房號 ${esc(identity.code)} · ${esc(dateStr)} · 共 ${rounds} 題</div>
+        <h2 style="font-size:23px; margin-top:8px; background:linear-gradient(100deg, var(--accent), var(--safe)); -webkit-background-clip:text; background-clip:text; color:transparent;">誰最可能戰績卡</h2>
+      </div>
+
+      <div class="sharerow win">
+        <div class="sharerow-label">🧠 全場最強讀心者</div>
+        <div class="sharerow-people">${champions.length ? champions.map(p=>`<span class="avatarchip">${avatarOf(p)} ${esc(p.name)}</span>`).join("") : `<span class="avatarchip">—</span>`}</div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <label>完整排行（猜中位置數，多到少）</label>
+        <ul class="playerlist">
+          ${ranked.map(p=>`
+            <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="strikes">${p.mlScore||0} 分</span></li>
+          `).join("")}
+        </ul>
+      </div>
+      <p class="helper" style="margin:16px 0 0;">截圖這張卡片，傳到聊天群組吧！</p>
+    </div>
+    ${isHost ? `<button class="btn-primary" id="rematchBtn">再玩一局</button>` : `<p class="helper">等待房主開始下一局</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(isHost) document.getElementById("rematchBtn").onclick = doRematchML;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
 // ---------- data / actions ----------
 
 async function ensureDb(){
@@ -1148,12 +1560,17 @@ async function doCreate(){
     if(!snap.exists) break;
   }
   const pid = uid();
+  const gameType = homeGameType==='mostlikely' ? 'mostlikely' : 'telepathy';
+  const settings = gameType==='mostlikely'
+    ? {duration:25, totalRounds:8}
+    : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"};
   try{
     await ref.set({
-      phase:"lobby", round:0, settings:{duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"},
-      currentQuestion:null, roundEndAt:null, revealLog:[], losers:[], lastQIdx:-1, createdAt: Date.now(), lastActivityAt: Date.now()
+      gameType, phase:"lobby", round:0, settings,
+      currentQuestion:null, currentPrompt:null, roundEndAt:null, revealLog:[], losers:[],
+      usedQKeys:[], usedPromptIdx:[], createdAt: Date.now(), lastActivityAt: Date.now()
     });
-    await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, ready:false });
+    await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, mlScore:0, ready:false });
   }catch(e){ joinError="建立房間失敗，請再試一次"; render(); return; }
   identity = {code, playerId: pid, name};
   saveIdentity(identity);
@@ -1179,12 +1596,18 @@ async function doJoin(){
     render(); return;
   }
   const pid = uid();
-  try{ await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, ready:false }); }
+  try{ await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, mlScore:0, ready:false }); }
   catch(e){ joinError="加入房間失敗，請再試一次"; render(); return; }
   try{ await ref.update({lastActivityAt: Date.now()}); }catch(e){}
   identity = {code, playerId: pid, name};
   saveIdentity(identity);
   connectRoom();
+}
+
+// 資料內容沒變就不要重新 render()：避免彈跳視窗（設定/玩法說明）在開著的時候，
+// 因為背景輪詢或監聽觸發整個畫面重繪、視窗看起來一直閃一下（重新播放滑入動畫）。
+function sameData(a,b){
+  try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return false; }
 }
 
 function connectRoom(){
@@ -1194,14 +1617,19 @@ function connectRoom(){
   roomData = null; playersData = [];
   expireCleanupDone = false;
   soundedRound = null;
+  mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
   if(unsubRoom) unsubRoom();
   if(unsubPlayers) unsubPlayers();
   unsubRoom = roomRef.onSnapshot(snap=>{
-    roomData = {exists: snap.exists, ...(snap.data()||{})};
+    const next = {exists: snap.exists, ...(snap.data()||{})};
+    if(sameData(next, roomData)) return;
+    roomData = next;
     render();
   }, ()=>{ roomData = {exists:false}; render(); });
   unsubPlayers = playersCol.onSnapshot(qsnap=>{
-    playersData = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    const next = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    if(sameData(next, playersData)) return;
+    playersData = next;
     render();
   }, ()=>{});
   render();
@@ -1211,18 +1639,19 @@ function connectRoom(){
 
 // 保底機制：即時監聽偶爾會漏更新（尤其手機網路不穩時），
 // 每幾秒主動抓一次最新房間狀態，避免有人卡在舊畫面看不到別人已經開始遊戲。
+// 資料跟目前畫面一樣的話就不 render()，不然設定/玩法說明視窗開著的時候會一直被重畫、看起來像自動刷新。
 async function pollRoomOnce(){
   if(!roomRef) return;
   try{
     const snap = await roomRef.get();
-    roomData = {exists: snap.exists, ...(snap.data()||{})};
-    render();
+    const next = {exists: snap.exists, ...(snap.data()||{})};
+    if(!sameData(next, roomData)){ roomData = next; render(); }
   }catch(e){}
   if(!playersCol) return;
   try{
     const qsnap = await playersCol.get();
-    playersData = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    render();
+    const next = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    if(!sameData(next, playersData)){ playersData = next; render(); }
   }catch(e){}
 }
 
@@ -1233,7 +1662,9 @@ function manageVoteSub(phase){
     unsubVotes = votesCol.where("round","==",roomData.round).onSnapshot(qsnap=>{
       votesData = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
       render();
-      if(votesData.length >= playersData.length && playersData.length>0) tryResolve();
+      if(votesData.length >= playersData.length && playersData.length>0){
+        if(roomData && roomData.gameType==="mostlikely") tryResolveML(); else tryResolve();
+      }
     }, ()=>{});
   } else if(!wantVotes && unsubVotes){
     unsubVotes(); unsubVotes = null; votesData = [];
@@ -1245,7 +1676,9 @@ function manageTicking(phase){
   if(should && !tickTimer){
     tickTimer = setInterval(()=>{
       render();
-      if(remainingSeconds()<=0) tryResolve();
+      if(remainingSeconds()<=0){
+        if(roomData && roomData.gameType==="mostlikely") tryResolveML(); else tryResolve();
+      }
     }, 250);
   } else if(!should && tickTimer){
     clearInterval(tickTimer); tickTimer = null;
@@ -1257,6 +1690,7 @@ function leaveToHome(){
   if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
   if(tickTimer){ clearInterval(tickTimer); tickTimer=null; }
   clearRevealTimers(); revealAnimRound = null; revealStage = 0;
+  mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
   unsubRoom=unsubPlayers=unsubVotes=null; roomRef=playersCol=votesCol=null; roomData=null; playersData=[]; votesData=[];
   identity = null; saveIdentity(null);
   render();
@@ -1277,17 +1711,18 @@ async function doStartGame(){
   if(players.length<2) return;
   if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
   const settings = roomData.settings || {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS};
-  const {idx, pool} = pickQuestion(roomData.lastQIdx, settings.enabledCategories);
+  const {idx, pool, resetUsed} = pickQuestion([], settings.enabledCategories);
   if(idx<0){ startError = "選取的題目類型目前沒有任何題目，請至少勾選一種類型"; render(); return; }
   startError = "";
   const {q, options} = materializeQuestion(pool[idx], players, 1);
+  const usedQKeys = [pool[idx].key];
   try{
     await clearAllVotes();
     await Promise.all(players.map(p=> playersCol.doc(p.id).update({strikes:0})));
     clearRevealTimers(); revealAnimRound = null; revealStage = 0;
     await roomRef.update({
       phase:"question", round:1, currentQuestion:{q, options},
-      roundEndAt: Date.now() + settings.duration*1000, revealLog:[], losers:[], lastQIdx: idx, lastActivityAt: Date.now()
+      roundEndAt: Date.now() + settings.duration*1000, revealLog:[], losers:[], usedQKeys, lastActivityAt: Date.now()
     });
   }catch(e){}
 }
@@ -1369,14 +1804,15 @@ async function tryResolve(){
 
 async function doNextQuestion(){
   const settings = roomData.settings || {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS};
-  const {idx, pool} = pickQuestion(roomData.lastQIdx, settings.enabledCategories);
+  const {idx, pool, resetUsed} = pickQuestion(roomData.usedQKeys, settings.enabledCategories);
   if(idx<0) return;
   const nextRound = (roomData.round||1)+1;
   const {q, options} = materializeQuestion(pool[idx], playersData, nextRound);
+  const usedQKeys = resetUsed ? [pool[idx].key] : [...(roomData.usedQKeys||[]), pool[idx].key];
   try{
     await roomRef.update({
       phase:"question", round:nextRound, currentQuestion:{q, options},
-      roundEndAt: Date.now() + settings.duration*1000, lastQIdx: idx, lastActivityAt: Date.now()
+      roundEndAt: Date.now() + settings.duration*1000, usedQKeys, lastActivityAt: Date.now()
     });
   }catch(e){}
 }
@@ -1396,7 +1832,7 @@ async function doRematch(){
   try{
     await clearAllVotes();
     await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({strikes:0, ready:false})));
-    await roomRef.update({phase:"lobby", round:0, currentQuestion:null, roundEndAt:null, revealLog:[], losers:[], lastActivityAt: Date.now()});
+    await roomRef.update({phase:"lobby", round:0, currentQuestion:null, roundEndAt:null, revealLog:[], losers:[], usedQKeys:[], lastActivityAt: Date.now()});
   }catch(e){}
 }
 
@@ -1412,6 +1848,117 @@ async function toggleReady(){
 // 對方的畫面偵測到自己不在玩家名單裡（render() 裡的 !me 判斷）就會自動顯示「已不在房間」。
 async function doKick(id){
   try{ await playersCol.doc(id).delete(); }catch(e){}
+}
+
+// ---------- 誰最可能：資料 / 動作 ----------
+
+async function doStartML(){
+  const players = playersData;
+  if(players.length<2) return;
+  if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
+  const settings = roomData.settings || {duration:25, totalRounds:8};
+  const {idx} = pickMLPrompt([]);
+  const {id: baseId} = pickMLBase(players.map(p=>p.id), []);
+  startError = "";
+  try{
+    await clearAllVotes();
+    await Promise.all(players.map(p=> playersCol.doc(p.id).update({mlScore:0})));
+    clearRevealTimers(); mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
+    await roomRef.update({
+      phase:"question", round:1, currentPrompt: MOST_LIKELY_PROMPTS[idx], currentBaseId: baseId,
+      roundEndAt: Date.now() + settings.duration*1000, revealLog:[], usedPromptIdx:[idx], usedBaseIds:[baseId], lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function submitMLRanking(){
+  if(voteBusy) return;
+  if(!mlRankOrder || mlRankOrder.length !== playersData.length) return;
+  voteBusy = true;
+  const voteId = `${roomData.round}_${identity.playerId}`;
+  try{
+    await votesCol.doc(voteId).set({round: roomData.round, playerId: identity.playerId, ranking: mlRankOrder.slice(), ts: Date.now()});
+    playVoteSound();
+    touchActivity();
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+async function tryResolveML(){
+  if(resolveBusy) return;
+  if(!roomData || roomData.phase!=="question") return;
+  resolveBusy = true;
+  try{
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(!lease.acquired){ resolveBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="question"){ resolveBusy=false; return; }
+    const fd = fresh.data();
+    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
+    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    const allVotedSnap = await votesCol.where("round","==",fd.round).get().catch(()=>({docs:[]}));
+    const roundVotes = allVotedSnap.docs.map(dd=>dd.data());
+    const timeUp = Date.now() >= (fd.roundEndAt||0);
+    const allVoted = roundVotes.length >= freshPlayers.length;
+    if(!timeUp && !allVoted){ resolveBusy=false; return; }
+
+    // 用基準者自己送出的排序當這一題的標準答案；基準者沒送出就整題不計分。
+    const baseVote = roundVotes.find(v=>v.playerId===fd.currentBaseId);
+    const baseRanking = baseVote ? baseVote.ranking : null;
+    const gainedById = {};
+    freshPlayers.forEach(p=>{ gainedById[p.id]=0; });
+    if(baseRanking){
+      roundVotes.forEach(v=>{
+        if(v.playerId===fd.currentBaseId) return; // 基準者這輪不跟自己比對、不計分
+        let matches = 0;
+        (v.ranking||[]).forEach((id,i)=>{ if(baseRanking[i]===id) matches++; });
+        gainedById[v.playerId] = matches;
+      });
+      await Promise.all(freshPlayers.map(p=>{
+        const gained = gainedById[p.id]||0;
+        if(gained>0) return playersCol.doc(p.id).update({mlScore:(p.mlScore||0)+gained});
+        return Promise.resolve();
+      }));
+    }
+
+    const log = (fd.revealLog||[]).slice();
+    log.push({
+      round: fd.round, prompt: fd.currentPrompt, baseId: fd.currentBaseId, baseRanking,
+      votes: roundVotes.map(v=>({playerId:v.playerId, ranking:v.ranking})), gainedById
+    });
+
+    // 一律先進 reveal 讓大家看這輪結果；是不是最後一題、要不要看總結，交給房主在 reveal 畫面按按鈕決定。
+    await roomRef.update({phase:"reveal", revealLog: log, lastActivityAt: Date.now()});
+  }catch(e){}
+  resolveBusy = false;
+}
+
+async function doNextML(){
+  const settings = roomData.settings || {duration:25, totalRounds:8};
+  const {idx, resetUsed} = pickMLPrompt(roomData.usedPromptIdx);
+  const {id: baseId, resetUsed: baseReset} = pickMLBase(playersData.map(p=>p.id), roomData.usedBaseIds);
+  const nextRound = (roomData.round||1)+1;
+  const usedPromptIdx = resetUsed ? [idx] : [...(roomData.usedPromptIdx||[]), idx];
+  const usedBaseIds = baseReset ? [baseId] : [...(roomData.usedBaseIds||[]), baseId];
+  try{
+    await roomRef.update({
+      phase:"question", round:nextRound, currentPrompt: MOST_LIKELY_PROMPTS[idx], currentBaseId: baseId,
+      roundEndAt: Date.now() + settings.duration*1000, usedPromptIdx, usedBaseIds, lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function doEndML(){
+  try{ await roomRef.update({phase:"ended", lastActivityAt: Date.now()}); }catch(e){}
+}
+
+async function doRematchML(){
+  try{
+    await clearAllVotes();
+    await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({mlScore:0, ready:false})));
+    await roomRef.update({phase:"lobby", round:0, currentPrompt:null, currentBaseId:null, roundEndAt:null, revealLog:[], usedPromptIdx:[], usedBaseIds:[], lastActivityAt: Date.now()});
+  }catch(e){}
 }
 
 // 把種子/修正流程中遇到的第一個錯誤顯示在題庫畫面上（例如 Firestore 規則沒開放寫入權限），方便排查。
