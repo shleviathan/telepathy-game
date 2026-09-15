@@ -79,6 +79,7 @@ button:disabled{opacity:.4; cursor:not-allowed;}
 .gamecard .gc-emoji{font-size:22px;}
 .gamecard .gc-title{font-weight:800; font-size:14.5px;}
 .gamecard .gc-desc{font-size:11.5px; opacity:.8; line-height:1.35;}
+.gamecard.wide{grid-column:1/-1;}
 
 .playerlist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
 .playerlist li{display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 13px;}
@@ -187,6 +188,19 @@ select{
 .mlrankhandle{width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:8px; color:var(--muted); font-size:16px; flex:none; cursor:grab; touch-action:none;}
 .mlscale{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin:2px 2px 0; font-weight:700;}
 
+.drawcanvas-wrap{margin-top:10px; border-radius:14px; overflow:hidden; border:1.5px solid var(--line); background:#fff; touch-action:none;}
+.drawcanvas-wrap canvas{display:block; width:100%; height:auto; aspect-ratio:4/3; touch-action:none;}
+.drawcanvas-wrap.locked{opacity:.85;}
+.drawturnstrip{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px;}
+.drawturnchip{font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; background:var(--surface-2); border:1px solid var(--line); color:var(--muted);}
+.drawturnchip.current{background:color-mix(in srgb, var(--accent) 22%, transparent); color:var(--accent); border-color:var(--accent);}
+.drawturnchip.done{background:color-mix(in srgb, var(--safe) 20%, transparent); color:var(--safe); border-color:var(--safe);}
+.guessinput{width:100%; font-size:16px; padding:12px 14px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-family:inherit; margin:12px 0;}
+.drawslot{display:inline-block; padding:1px 8px; margin:0 2px; border-radius:8px; background:var(--surface-2); border:1px solid var(--line); font-weight:800; min-width:1.6em;}
+.drawslot.spin{animation:drawslotspin .09s linear infinite; filter:blur(.3px);}
+.drawslot.landed{animation:drawslotland .32s cubic-bezier(.34,1.56,.64,1);}
+@keyframes drawslotspin{0%{transform:translateY(0);}50%{transform:translateY(-3px);}100%{transform:translateY(0);}}
+@keyframes drawslotland{0%{transform:scale(1.35); background:color-mix(in srgb, var(--accent) 30%, transparent);}100%{transform:scale(1);}}
 .answeredrow{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:16px;}
 .achip{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; background:var(--surface-2); border:1px solid var(--line); color:var(--muted);}
 .achip.done{background:color-mix(in srgb, var(--safe) 20%, transparent); color:var(--safe); border-color:var(--safe);}
@@ -267,8 +281,8 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v2.4";
-const APP_UPDATED = "2026-09-14";
+const APP_VERSION = "v2.7";
+const APP_UPDATED = "2026-09-15";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
   {id:"travel", label:"旅行"},
@@ -354,6 +368,36 @@ function pickMLBase(playerIds, usedIds){
   const id = candidates[Math.floor(Math.random()*candidates.length)];
   return {id, resetUsed};
 }
+
+// 「接力畫猜」的題目：主體 + 地點 + 動作 隨機各抽一個組成一句情境描述，增加難度與變化。
+const DRAW_SUBJECTS = [
+  "貓","狗","大象","鯊魚","恐龍","忍者","海盜","巫婆","超人","機器人",
+  "美人魚","殭屍","外星人","國王","公主","消防員","太空人","企鵝","蜜蜂","老鼠"
+];
+const DRAW_PLACES = [
+  "廚房","月球","海底","沙漠","教室","電梯裡","游泳池","山頂","超市","動物園",
+  "辦公室","地下室","遊樂園","叢林","火山口","機場","圖書館","婚禮現場","塞車的馬路上","外太空"
+];
+const DRAW_ACTIONS = [
+  "跳舞","打噴嚏","吃火鍋","打電動","彈鋼琴","放風箏","刷牙","打籃球","修理東西","拍照",
+  "逃跑","打瞌睡","唱卡拉OK","綁鞋帶","騎腳踏車","洗澡","打架","烤肉","滑雪","扮鬼臉"
+];
+function pickDrawPrompt(usedKeys){
+  const usedSet = new Set(usedKeys||[]);
+  let key, si, pi, ai, tries = 0;
+  do{
+    si = Math.floor(Math.random()*DRAW_SUBJECTS.length);
+    pi = Math.floor(Math.random()*DRAW_PLACES.length);
+    ai = Math.floor(Math.random()*DRAW_ACTIONS.length);
+    key = si+"-"+pi+"-"+ai;
+    tries++;
+  }while(usedSet.has(key) && tries<30);
+  const resetUsed = usedSet.has(key);
+  const subject = DRAW_SUBJECTS[si], place = DRAW_PLACES[pi], action = DRAW_ACTIONS[ai];
+  const text = `${subject}在${place}${action}`;
+  return {key, text, subject, place, action, resetUsed};
+}
+
 function avatarOf(p){ return (p && p.avatar) || "🙂"; }
 const QUESTIONS = [
 ["你覺得如果PP中了一億，會先做什麼？",["環遊世界", "買房子", "捐一半出去", "存起來不動"],"work_money"],
@@ -597,6 +641,11 @@ let homeGameType = "telepathy"; // 開新房間時選的遊戲；加入房間時
 let mlRevealAnimRound = null, mlRevealReady = false, mlSoundedRound = null;
 let mlRankOrder = null, mlRankOrderRound = null; // 「誰最可能」排序中的本地暫存排序（送出前不寫進資料庫）
 let mlDragging = false; // 是否正在拖曳排序中，拖曳時暫停畫面重畫
+let strokesCol = null, unsubStrokes = null, strokesData = [];
+let drawingInProgress = false; // 目前是否正在畫一筆，畫的當下不要整頁重畫
+let drawGuessInput = ""; // 猜謎者輸入中的猜測文字
+let drawPromptAnimRound = null; // 已經播放過拉霸抽題動畫的回合，避免重複播放
+let drawPromptAnimating = false; // 拉霸動畫播放中，暫停整頁重繪
 // 分享出去的連結會帶 ?code=XXXX，開啟時直接幫忙切到「加入房間」分頁並帶入代碼。
 try{
   const _params = new URLSearchParams(location.search);
@@ -615,7 +664,7 @@ let voteBusy=false, resolveBusy=false;
 const app = document.getElementById("app");
 
 function render(){
-  if(mlDragging) return; // 排序拖曳中先不要整頁重畫，不然手指拖到一半畫面會被背景更新打斷、跳掉
+  if(mlDragging || drawingInProgress || drawPromptAnimating) return; // 拖曳排序中/畫畫中/抽題拉霸動畫中先不要整頁重畫，不然手指動作或動畫會被背景更新打斷、跳掉
   if(!identity){ renderHome(); return; }
   if(!roomData){ renderConnecting(); return; }
   if(!roomData.exists){ renderGone(); return; }
@@ -628,11 +677,20 @@ function render(){
   const gameType = roomData.gameType || "telepathy";
   manageTicking(phase);
   manageVoteSub(phase);
+  manageStrokeSub(phase);
   if(gameType==="mostlikely"){
     if(phase==="lobby") return renderLobby(isHost);
     if(phase==="question") return renderMLQuestion(me, isHost);
     if(phase==="reveal") return renderMLReveal(isHost);
     if(phase==="ended") return renderMLEnded(isHost);
+    return renderConnecting();
+  }
+  if(gameType==="draw"){
+    if(phase==="lobby") return renderLobby(isHost);
+    if(phase==="drawing") return renderDrawTurn(me, isHost);
+    if(phase==="guessing") return renderDrawGuessing(isHost);
+    if(phase==="reveal") return renderDrawReveal(isHost);
+    if(phase==="ended") return renderDrawEnded(isHost);
     return renderConnecting();
   }
   if(phase==="lobby") return renderLobby(isHost);
@@ -662,6 +720,11 @@ function renderHome(){
             <span class="gc-title">誰最可能</span>
             <span class="gc-desc">選出全場最像的那個人</span>
           </button>
+          <button class="gamecard wide ${homeGameType==='draw'?'on':''}" data-game="draw">
+            <span class="gc-emoji">🎨</span>
+            <span class="gc-title">接力畫猜</span>
+            <span class="gc-desc">大家接力畫一張圖，猜謎者猜猜是什麼</span>
+          </button>
         </div>
       ` : ``}
       <label>你的暱稱</label>
@@ -678,7 +741,9 @@ function renderHome(){
       <button class="btn-primary" id="goBtn">${homeTab==='create' ? '建立房間' : '加入房間'}</button>
     </div>
     <p class="helper">${homeTab==='create'
-      ? (homeGameType==='mostlikely' ? '2 人以上就能玩，猜猜大家心裡最可能是誰。' : '2 人以上就能玩，選到跟別人不一樣的人會被扣分。')
+      ? (homeGameType==='mostlikely' ? '2 人以上就能玩，猜猜大家心裡最可能是誰。'
+        : homeGameType==='draw' ? '3 人以上更好玩，大家接力在畫布上畫畫，猜謎者最後猜猜是什麼。'
+        : '2 人以上就能玩，選到跟別人不一樣的人會被扣分。')
       : '輸入房號就能加入朋友的房間，遊戲類型由房主決定。'}</p>
   `;
   document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ homeTab=t.dataset.tab; joinError=""; render(); });
@@ -712,7 +777,8 @@ function renderLobby(isHost){
   const players = playersData;
   const gameType = roomData.gameType || "telepathy";
   const isML = gameType === "mostlikely";
-  const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
+  const isDraw = gameType === "draw";
+  const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : isDraw ? {turnSeconds:12, totalRounds:6} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
   const enabledCats = new Set(settings.enabledCategories && settings.enabledCategories.length ? settings.enabledCategories : ALL_CATEGORY_IDS);
   const mode = settings.mode || "normal";
   const hostId = players.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.id;
@@ -721,9 +787,10 @@ function renderLobby(isHost){
   const canStart = players.length>=2 && allReady;
   const me = players.find(p=>p.id===identity.playerId);
   const myReady = !!(me && me.ready);
+  const gameLabel = isML ? '誰最可能' : isDraw ? '接力畫猜' : '心電感應';
   app.innerHTML = `
     <div class="card">
-      <div class="badge purple">LOBBY · ${isML?'誰最可能':'心電感應'}</div>
+      <div class="badge purple">LOBBY · ${gameLabel}</div>
       <div class="codeshare clear-badge">
         <span class="mono" style="font-size:11px;color:var(--muted);letter-spacing:.2em;">房號</span>
         <span class="code">${esc(identity.code)}</span>
@@ -737,7 +804,7 @@ function renderLobby(isHost){
           const isMe = p.id===identity.playerId;
           const scoreSpan = isML
             ? `<span class="strikes">🎯 ${p.mlScore||0}</span>`
-            : `<span class="strikes">${p.strikes||0}</span>`;
+            : isDraw ? `` : `<span class="strikes">${p.strikes||0}</span>`;
           const rightSide = isMe
             ? `<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`
             : (isHost
@@ -757,7 +824,7 @@ function renderLobby(isHost){
     <div class="iconrow">
       <button class="iconbtn" id="openHelpBtn"><span class="iconbtn-emoji">❓</span><span>玩法</span></button>
       <button class="iconbtn" id="openSettingsBtn"><span class="iconbtn-emoji">⚙️</span><span>設定</span></button>
-      ${isML ? `` : `<button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>`}
+      ${(isML || isDraw) ? `` : `<button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>`}
       <button class="iconbtn" id="toggleSoundBtn"><span class="iconbtn-emoji">${soundEnabled?'🔊':'🔇'}</span><span>音效</span></button>
     </div>
 
@@ -767,13 +834,13 @@ function renderLobby(isHost){
     ` : `<p class="helper">等待房主 <b>${esc(players.find(p=>p.id===hostId)?.name||'')}</b> 開始遊戲…</p>`}
     <button class="btn-ghost" id="leaveBtn">離開房間</button>
 
-    ${settingsModalOpen ? (isML ? renderMLSettingsModal(isHost, settings) : renderSettingsModal(isHost, settings, enabledCats, mode)) : ``}
-    ${bankModalOpen && !isML ? renderBankModal() : ``}
-    ${helpModalOpen ? (isML ? renderMLHelpModal() : renderHelpModal()) : ``}
+    ${settingsModalOpen ? (isML ? renderMLSettingsModal(isHost, settings) : isDraw ? renderDrawSettingsModal(isHost, settings) : renderSettingsModal(isHost, settings, enabledCats, mode)) : ``}
+    ${bankModalOpen && !isML && !isDraw ? renderBankModal() : ``}
+    ${helpModalOpen ? (isML ? renderMLHelpModal() : isDraw ? renderDrawHelpModal() : renderHelpModal()) : ``}
   `;
   document.getElementById("copyBtn").onclick = ()=>{ navigator.clipboard && navigator.clipboard.writeText(identity.code).catch(()=>{}); };
   document.getElementById("shareBtn").onclick = ()=>{
-    const gameName = isML ? "誰最可能" : "心電感應";
+    const gameName = gameLabel;
     const shareUrl = `${location.origin}${location.pathname}?code=${identity.code}`;
     const shareText = `一起來玩${gameName}吧！房號 ${identity.code}\n${shareUrl}`;
     if(navigator.share){
@@ -809,11 +876,11 @@ function renderLobby(isHost){
   const openBankBtn = document.getElementById("openBankBtn");
   if(openBankBtn) openBankBtn.onclick = ()=>{ bankModalOpen = true; render(); };
   if(isHost){
-    document.getElementById("startBtn").onclick = isML ? doStartML : doStartGame;
+    document.getElementById("startBtn").onclick = isML ? doStartML : isDraw ? doStartDraw : doStartGame;
   }
-  if(settingsModalOpen){ if(isML) wireMLSettingsModal(isHost, settings); else wireSettingsModal(isHost, settings); }
-  if(bankModalOpen && !isML) wireQuestionBank();
-  if(helpModalOpen){ if(isML) wireMLHelpModal(); else wireHelpModal(); }
+  if(settingsModalOpen){ if(isML) wireMLSettingsModal(isHost, settings); else if(isDraw) wireDrawSettingsModal(isHost, settings); else wireSettingsModal(isHost, settings); }
+  if(bankModalOpen && !isML && !isDraw) wireQuestionBank();
+  if(helpModalOpen){ if(isML) wireMLHelpModal(); else if(isDraw) wireDrawHelpModal(); else wireHelpModal(); }
 }
 let lobbyAvatarPickOpen = false;
 
@@ -1014,6 +1081,83 @@ function wireMLSettingsModal(isHost, settings){
   const totalRounds = settings.totalRounds || 8;
   document.getElementById("roundsMinus").onclick = ()=> updateSettings({totalRounds: Math.max(3, totalRounds-1)});
   document.getElementById("roundsPlus").onclick = ()=> updateSettings({totalRounds: Math.min(20, totalRounds+1)});
+}
+
+function renderDrawHelpModal(){
+  return `
+    <div class="modalbackdrop" id="helpBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>❓ 玩法說明</h2>
+          <button class="modalclose" id="helpClose">✕</button>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--safe);">目標</div>
+          <p class="helper" style="text-align:left; margin:0;">每一輪會指定一位「猜謎者」🙈，其他人都知道題目，依序輪流在同一張畫布上接力畫畫。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--accent);">怎麼玩</div>
+          <p class="helper" style="text-align:left; margin:0;">輪到你畫的時候，時間到就會自動換下一個人接著畫；猜謎者全程看不到題目，只能看畫布。</p>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <div class="helptitle">猜謎</div>
+          <p class="helper" style="text-align:left; margin:0;">大家都畫完之後，猜謎者看著完成的畫猜是什麼，猜完（或用嘴巴講也行）就公布答案，換下一輪、換下一個人當猜謎者。沒有計分，純粹好玩！</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireDrawHelpModal(){
+  const helpClose = document.getElementById("helpClose");
+  if(helpClose) helpClose.onclick = ()=>{ helpModalOpen = false; render(); };
+  const helpBackdrop = document.getElementById("helpBackdrop");
+  if(helpBackdrop) helpBackdrop.onclick = (e)=>{ if(e.target.id==="helpBackdrop"){ helpModalOpen = false; render(); } };
+}
+
+function renderDrawSettingsModal(isHost, settings){
+  const totalRounds = settings.totalRounds || 6;
+  return `
+    <div class="modalbackdrop" id="settingsBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>⚙️ 遊戲設定</h2>
+          <button class="modalclose" id="settingsClose">✕</button>
+        </div>
+        ${isHost ? `
+          <div class="settingsrow" style="border-top:none;">
+            <span>每人畫幾秒</span>
+            <div class="stepper">
+              <button id="durMinus">−</button><span class="n">${settings.turnSeconds} 秒</span><button id="durPlus">+</button>
+            </div>
+          </div>
+          <div class="settingsrow">
+            <span>玩幾輪</span>
+            <div class="stepper">
+              <button id="roundsMinus">−</button><span class="n">${totalRounds} 輪</span><button id="roundsPlus">+</button>
+            </div>
+          </div>
+        ` : `
+          <div class="settingsrow" style="border-top:none;">
+            <span>每人畫幾秒</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${settings.turnSeconds} 秒</span>
+          </div>
+          <div class="settingsrow">
+            <span>玩幾輪</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${totalRounds} 輪</span>
+          </div>
+          <p class="helper" style="margin:16px 0 0;">只有房主可以調整這些設定。</p>
+        `}
+      </div>
+    </div>
+  `;
+}
+function wireDrawSettingsModal(isHost, settings){
+  document.getElementById("settingsClose").onclick = ()=>{ settingsModalOpen = false; render(); };
+  document.getElementById("settingsBackdrop").onclick = (e)=>{ if(e.target.id==="settingsBackdrop"){ settingsModalOpen = false; render(); } };
+  if(!isHost) return;
+  document.getElementById("durMinus").onclick = ()=> updateSettings({turnSeconds: Math.max(6, settings.turnSeconds-2)});
+  document.getElementById("durPlus").onclick = ()=> updateSettings({turnSeconds: Math.min(30, settings.turnSeconds+2)});
+  const totalRounds = settings.totalRounds || 6;
+  document.getElementById("roundsMinus").onclick = ()=> updateSettings({totalRounds: Math.max(2, totalRounds-1)});
+  document.getElementById("roundsPlus").onclick = ()=> updateSettings({totalRounds: Math.min(15, totalRounds+1)});
 }
 
 function renderBankModal(){
@@ -1567,6 +1711,262 @@ function renderMLEnded(isHost){
   document.getElementById("leaveBtn").onclick = doLeave;
 }
 
+// ---------- 接力畫猜：畫布 ----------
+
+// 畫布固定內部解析度，用 CSS 縮放成響應式大小；座標一律換算成 0~1 的相對位置存進資料庫，
+// 這樣不同螢幕大小/裝置的人看到的畫都會對齊，不會因為畫布尺寸不同而變形錯位。
+function replayStrokesOnCanvas(canvas, strokes){
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle = "#2b2b2b";
+  ctx.lineWidth = 5;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  (strokes||[]).forEach(s=>{
+    const path = s.path||[];
+    if(path.length<1) return;
+    ctx.beginPath();
+    path.forEach((pt,i)=>{
+      const x = pt[0]*canvas.width, y = pt[1]*canvas.height;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  });
+}
+
+function setupDrawCanvas(canvasId, enabled){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  canvas.width = 600; canvas.height = 450;
+  replayStrokesOnCanvas(canvas, strokesData);
+  if(!enabled) return;
+  let currentPath = null;
+  function posFromEvent(e){
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    return [Math.max(0,Math.min(1,x)), Math.max(0,Math.min(1,y))];
+  }
+  function onDown(e){
+    e.preventDefault();
+    drawingInProgress = true; // 畫的當下暫停整頁重畫，不然畫布會被背景更新換掉、畫一半跳掉
+    currentPath = [posFromEvent(e)];
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointercancel", onUp);
+  }
+  function onMove(e){
+    if(!currentPath) return;
+    currentPath.push(posFromEvent(e));
+    const ctx = canvas.getContext("2d");
+    ctx.strokeStyle = "#2b2b2b"; ctx.lineWidth = 5; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const n = currentPath.length;
+    if(n>=2){
+      const [x1,y1] = currentPath[n-2], [x2,y2] = currentPath[n-1];
+      ctx.beginPath();
+      ctx.moveTo(x1*canvas.width, y1*canvas.height);
+      ctx.lineTo(x2*canvas.width, y2*canvas.height);
+      ctx.stroke();
+    }
+  }
+  function onUp(){
+    canvas.removeEventListener("pointermove", onMove);
+    canvas.removeEventListener("pointerup", onUp);
+    canvas.removeEventListener("pointercancel", onUp);
+    const path = currentPath;
+    currentPath = null;
+    drawingInProgress = false;
+    if(path && path.length>1) commitStroke(path);
+    else render();
+  }
+  canvas.addEventListener("pointerdown", onDown);
+}
+
+async function commitStroke(path){
+  const stroke = {round: roomData.round, playerId: identity.playerId, path, ts: Date.now()};
+  // 先樂觀地把這一筆加進本地資料重畫一次，免得放開手指那瞬間、資料庫還沒回傳前畫面閃一下不見；
+  // 等 onSnapshot 真的收到這筆資料時，strokesData 會整包被換成資料庫的版本，這筆本地暫存會自然被取代掉。
+  strokesData = strokesData.concat([{...stroke, id:`local_${Date.now()}_${Math.random().toString(36).slice(2,7)}`}]);
+  render();
+  try{
+    await strokesCol.doc().set(stroke);
+    touchActivity();
+  }catch(e){}
+}
+
+// ---------- 接力畫猜：畫面 ----------
+
+// 拉霸式抽題動畫：三個字詞欄位各自快速跑動後依序停下，最後停在真正抽到的題目。
+// 期間把 drawPromptAnimating 設為 true，讓 render() 暫停整頁重畫，避免動畫被打斷。
+function playDrawSlotAnim(subject, place, action){
+  const elS = document.getElementById("slotSubject");
+  const elP = document.getElementById("slotPlace");
+  const elA = document.getElementById("slotAction");
+  if(!elS || !elP || !elA){ drawPromptAnimating = false; return; }
+  drawPromptAnimating = true;
+  const reels = [
+    {el: elS, pool: DRAW_SUBJECTS, final: subject, stopAt: 650},
+    {el: elP, pool: DRAW_PLACES, final: place, stopAt: 950},
+    {el: elA, pool: DRAW_ACTIONS, final: action, stopAt: 1300}
+  ];
+  const start = Date.now();
+  reels.forEach((r, i)=>{
+    r.el.classList.add("spin");
+    const tick = ()=>{
+      const elapsed = Date.now() - start;
+      if(elapsed >= r.stopAt){
+        r.el.textContent = r.final;
+        r.el.classList.remove("spin");
+        r.el.classList.add("landed");
+        beep(520 + i*160, 70, "square");
+        vibrate(12);
+        return;
+      }
+      r.el.textContent = r.pool[Math.floor(Math.random()*r.pool.length)];
+      const delay = (r.stopAt - elapsed) < 220 ? 110 : 55;
+      setTimeout(tick, delay);
+    };
+    tick();
+  });
+  setTimeout(()=>{ drawPromptAnimating = false; render(); }, 1300 + 120);
+}
+
+function renderDrawTurn(me, isHost){
+  const duration = (roomData.settings && roomData.settings.turnSeconds) || 12;
+  const remain = remainingSeconds();
+  const remainInt = Math.ceil(remain);
+  const frac = Math.max(0, Math.min(1, remain/duration));
+  const R = 44, C = 2*Math.PI*R;
+  const dashoffset = C*(1-frac);
+  const totalRounds = (roomData.settings && roomData.settings.totalRounds) || 6;
+  const drawOrder = roomData.drawOrder || [];
+  const drawerIndex = roomData.currentDrawerIndex || 0;
+  const currentDrawerId = drawOrder[drawerIndex];
+  const guesserId = roomData.currentGuesserId;
+  const iAmGuesser = identity.playerId === guesserId;
+  const iAmDrawer = identity.playerId === currentDrawerId;
+  const guesserP = playersData.find(p=>p.id===guesserId);
+  const drawerP = playersData.find(p=>p.id===currentDrawerId);
+  const needSlotAnim = !iAmGuesser && drawPromptAnimRound !== roomData.round;
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge purple">接力畫猜 · 第 ${roomData.round}/${totalRounds} 輪</div>
+      <div class="timerzone">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 100 100">
+            <circle class="ring-bg" cx="50" cy="50" r="${R}"></circle>
+            <circle class="ring-fg ${frac<0.25?'low':''}" cx="50" cy="50" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${dashoffset}"></circle>
+          </svg>
+          <div class="ring-num digits">${remainInt}</div>
+        </div>
+      </div>
+      ${iAmGuesser ? `
+        <p class="helper" style="margin:-4px 0 4px;">🙈 這輪你是猜謎者，先別偷看題目，等大家畫完你再猜！</p>
+      ` : needSlotAnim ? `
+        <div class="qtext">題目：🎰 <span class="drawslot" id="slotSubject">${esc(DRAW_SUBJECTS[0])}</span>在<span class="drawslot" id="slotPlace">${esc(DRAW_PLACES[0])}</span><span class="drawslot" id="slotAction">${esc(DRAW_ACTIONS[0])}</span></div>
+        <p class="helper" style="margin:-4px 0 4px;">抽題中…</p>
+      ` : `
+        <div class="qtext">題目：${esc(roomData.currentPrompt||"")}</div>
+        <p class="helper" style="margin:-4px 0 4px;">${iAmDrawer ? '✏️ 輪到你畫了！' : `⏳ 輪到 <b>${drawerP?esc(drawerP.name):''}</b> 畫`}</p>
+      `}
+      <div class="drawcanvas-wrap ${iAmDrawer ? '' : 'locked'}">
+        <canvas id="drawCanvas"></canvas>
+      </div>
+      <div class="drawturnstrip">
+        ${drawOrder.map((id,i)=>{
+          const p = playersData.find(pp=>pp.id===id);
+          if(!p) return "";
+          const cls = i<drawerIndex ? 'done' : (i===drawerIndex ? 'current' : '');
+          return `<span class="drawturnchip ${cls}">${avatarOf(p)} ${esc(p.name)}${i<drawerIndex?' ✓':''}</span>`;
+        }).join("")}
+        ${guesserP ? `<span class="drawturnchip">🙈 ${avatarOf(guesserP)} ${esc(guesserP.name)}</span>` : ``}
+      </div>
+    </div>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  setupDrawCanvas("drawCanvas", iAmDrawer);
+  document.getElementById("leaveBtn").onclick = doLeave;
+  if(needSlotAnim){
+    drawPromptAnimRound = roomData.round;
+    playDrawSlotAnim(roomData.drawSubject || "", roomData.drawPlace || "", roomData.drawAction || "");
+  }
+}
+
+function renderDrawGuessing(isHost){
+  const guesserId = roomData.currentGuesserId;
+  const iAmGuesser = identity.playerId === guesserId;
+  const guesserP = playersData.find(p=>p.id===guesserId);
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">🙈 猜謎時間</div>
+      <p class="helper" style="margin-top:-4px;">${iAmGuesser ? '仔細看這張接力畫，猜猜大家畫的是什麼！' : `等待 <b>${guesserP?esc(guesserP.name):''}</b> 看畫猜答案…`}</p>
+      <div class="drawcanvas-wrap">
+        <canvas id="drawCanvas"></canvas>
+      </div>
+      ${iAmGuesser ? `
+        <input type="text" id="guessInput" class="guessinput" maxlength="20" placeholder="輸入你猜的答案" value="${esc(drawGuessInput)}">
+        <button class="btn-primary" id="submitGuessBtn">送出猜的答案</button>
+      ` : ``}
+    </div>
+    ${isHost ? `<button class="btn-secondary" id="revealBtn" style="margin-top:10px;">直接公布答案</button>` : ``}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  setupDrawCanvas("drawCanvas", false);
+  if(iAmGuesser){
+    const input = document.getElementById("guessInput");
+    input.oninput = (e)=>{ drawGuessInput = e.target.value; };
+    document.getElementById("submitGuessBtn").onclick = submitDrawGuess;
+  }
+  if(isHost){
+    document.getElementById("revealBtn").onclick = ()=> revealDrawAnswer(null);
+  }
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderDrawReveal(isHost){
+  const totalRounds = (roomData.settings && roomData.settings.totalRounds) || 6;
+  const isLastRound = roomData.round >= totalRounds;
+  const guess = roomData.guesserGuess;
+  const guesserP = playersData.find(p=>p.id===roomData.currentGuesserId);
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">結果公布</div>
+      <div class="drawcanvas-wrap">
+        <canvas id="drawCanvas"></canvas>
+      </div>
+      <p class="helper" style="margin-top:12px;">🎯 答案是：<b>${esc(roomData.currentPrompt||"")}</b></p>
+      <p class="helper" style="margin-top:-8px;">${guess ? `${guesserP?esc(guesserP.name):'猜謎者'} 猜的是：「${esc(guess)}」` : `${guesserP?esc(guesserP.name):'猜謎者'} 用嘴巴講的，沒有輸入答案`}</p>
+    </div>
+    ${isHost ? `<button class="btn-primary" id="nextBtn">${isLastRound?'看總結':'繼續下一輪'}</button>` : `<p class="helper">等待房主繼續</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  setupDrawCanvas("drawCanvas", false);
+  if(isHost) document.getElementById("nextBtn").onclick = isLastRound ? doEndDraw : doNextDraw;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderDrawEnded(isHost){
+  const rounds = roomData.round || 0;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">完賽</div>
+      <div style="text-align:center;">
+        <h2 style="font-size:23px; margin-top:8px; background:linear-gradient(100deg, var(--accent), var(--safe)); -webkit-background-clip:text; background-clip:text; color:transparent;">接力畫猜結束！</h2>
+        <p class="helper" style="margin-top:8px;">這局一起接力畫了 ${rounds} 輪，辛苦大家的畫工了！</p>
+      </div>
+    </div>
+    ${isHost ? `<button class="btn-primary" id="rematchBtn">再玩一局</button>` : `<p class="helper">等待房主開始下一局</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(isHost) document.getElementById("rematchBtn").onclick = doRematchDraw;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
 // ---------- data / actions ----------
 
 async function ensureDb(){
@@ -1609,15 +2009,19 @@ async function doCreate(){
     if(!snap.exists) break;
   }
   const pid = uid();
-  const gameType = homeGameType==='mostlikely' ? 'mostlikely' : 'telepathy';
+  const gameType = homeGameType==='mostlikely' ? 'mostlikely' : (homeGameType==='draw' ? 'draw' : 'telepathy');
   const settings = gameType==='mostlikely'
     ? {duration:25, totalRounds:8}
+    : gameType==='draw'
+    ? {turnSeconds:12, totalRounds:6}
     : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"};
   try{
     await ref.set({
       gameType, phase:"lobby", round:0, settings,
       currentQuestion:null, currentPrompt:null, roundEndAt:null, revealLog:[], losers:[],
-      usedQKeys:[], usedPromptIdx:[], createdAt: Date.now(), lastActivityAt: Date.now()
+      usedQKeys:[], usedPromptIdx:[],
+      currentGuesserId:null, usedGuesserIds:[], usedDrawPromptIdx:[], drawOrder:[], currentDrawerIndex:0, guesserGuess:null,
+      createdAt: Date.now(), lastActivityAt: Date.now()
     });
     await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, mlScore:0, ready:false });
   }catch(e){ joinError="建立房間失敗，請再試一次"; render(); return; }
@@ -1667,6 +2071,7 @@ function connectRoom(){
   expireCleanupDone = false;
   soundedRound = null;
   mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
+  drawingInProgress = false; drawGuessInput = ""; strokesData = []; drawPromptAnimRound = null; drawPromptAnimating = false;
   if(unsubRoom) unsubRoom();
   if(unsubPlayers) unsubPlayers();
   unsubRoom = roomRef.onSnapshot(snap=>{
@@ -1721,12 +2126,15 @@ function manageVoteSub(phase){
 }
 
 function manageTicking(phase){
-  const should = phase === "question";
+  const should = phase === "question" || phase === "drawing";
   if(should && !tickTimer){
     tickTimer = setInterval(()=>{
+      if(drawingInProgress || drawPromptAnimating) return; // 正在畫的時候/拉霸動畫播放中先不要因為倒數計時重畫打斷
       render();
       if(remainingSeconds()<=0){
-        if(roomData && roomData.gameType==="mostlikely") tryResolveML(); else tryResolve();
+        if(roomData && roomData.gameType==="mostlikely") tryResolveML();
+        else if(roomData && roomData.gameType==="draw") tryAdvanceDraw();
+        else tryResolve();
       }
     }, 250);
   } else if(!should && tickTimer){
@@ -1734,13 +2142,28 @@ function manageTicking(phase){
   }
 }
 
+// 「接力畫猜」的筆畫：跟 votes 一樣，依目前這一輪 round 訂閱，畫畫/猜謎/公布答案時都要看得到已經畫的東西。
+function manageStrokeSub(phase){
+  const wantStrokes = roomData && roomData.gameType==="draw" && (phase==="drawing" || phase==="guessing" || phase==="reveal");
+  if(wantStrokes && !unsubStrokes){
+    strokesCol = roomRef.collection("strokes");
+    unsubStrokes = strokesCol.where("round","==",roomData.round).onSnapshot(qsnap=>{
+      strokesData = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+      if(!drawingInProgress) render();
+    }, ()=>{});
+  } else if(!wantStrokes && unsubStrokes){
+    unsubStrokes(); unsubStrokes = null; strokesData = [];
+  }
+}
+
 function leaveToHome(){
-  if(unsubRoom) unsubRoom(); if(unsubPlayers) unsubPlayers(); if(unsubVotes) unsubVotes();
+  if(unsubRoom) unsubRoom(); if(unsubPlayers) unsubPlayers(); if(unsubVotes) unsubVotes(); if(unsubStrokes) unsubStrokes();
   if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
   if(tickTimer){ clearInterval(tickTimer); tickTimer=null; }
   clearRevealTimers(); revealAnimRound = null; revealStage = 0;
   mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
-  unsubRoom=unsubPlayers=unsubVotes=null; roomRef=playersCol=votesCol=null; roomData=null; playersData=[]; votesData=[];
+  drawingInProgress = false; drawGuessInput = ""; strokesData = []; drawPromptAnimRound = null; drawPromptAnimating = false;
+  unsubRoom=unsubPlayers=unsubVotes=unsubStrokes=null; roomRef=playersCol=votesCol=strokesCol=null; roomData=null; playersData=[]; votesData=[];
   identity = null; saveIdentity(null);
   render();
 }
@@ -1897,6 +2320,105 @@ async function toggleReady(){
 // 對方的畫面偵測到自己不在玩家名單裡（render() 裡的 !me 判斷）就會自動顯示「已不在房間」。
 async function doKick(id){
   try{ await playersCol.doc(id).delete(); }catch(e){}
+}
+
+// ---------- 接力畫猜：資料 / 動作 ----------
+
+async function clearAllStrokes(){
+  try{
+    const scol = roomRef.collection("strokes");
+    const snap = await scol.get();
+    await Promise.all(snap.docs.map(dd=> scol.doc(dd.id).delete()));
+  }catch(e){}
+}
+
+async function doStartDraw(){
+  const players = playersData;
+  if(players.length<2) return;
+  if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
+  const settings = roomData.settings || {turnSeconds:12, totalRounds:6};
+  const {id: guesserId} = pickMLBase(players.map(p=>p.id), []);
+  const {key, text, subject, place, action} = pickDrawPrompt([]);
+  const drawOrder = players.filter(p=>p.id!==guesserId).slice().sort((a,b)=>a.joinedAt-b.joinedAt).map(p=>p.id);
+  startError = "";
+  try{
+    await clearAllStrokes();
+    await roomRef.update({
+      phase:"drawing", round:1, currentGuesserId: guesserId, currentPrompt: text,
+      drawSubject: subject, drawPlace: place, drawAction: action,
+      drawOrder, currentDrawerIndex:0, roundEndAt: Date.now()+settings.turnSeconds*1000,
+      usedGuesserIds:[guesserId], usedDrawPromptIdx:[key], guesserGuess:null, lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function tryAdvanceDraw(){
+  if(resolveBusy) return;
+  if(!roomData || roomData.phase!=="drawing") return;
+  resolveBusy = true;
+  try{
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(!lease.acquired){ resolveBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="drawing"){ resolveBusy=false; return; }
+    const fd = fresh.data();
+    const timeUp = Date.now() >= (fd.roundEndAt||0);
+    if(!timeUp){ resolveBusy=false; return; }
+    const drawOrder = fd.drawOrder||[];
+    const nextIndex = (fd.currentDrawerIndex||0)+1;
+    const settings = fd.settings || {turnSeconds:12, totalRounds:6};
+    if(nextIndex >= drawOrder.length){
+      await roomRef.update({phase:"guessing", lastActivityAt: Date.now()});
+    } else {
+      await roomRef.update({currentDrawerIndex: nextIndex, roundEndAt: Date.now()+settings.turnSeconds*1000, lastActivityAt: Date.now()});
+    }
+  }catch(e){}
+  resolveBusy = false;
+}
+
+async function revealDrawAnswer(guess){
+  try{
+    await roomRef.update({phase:"reveal", guesserGuess: (guess && guess.trim()) ? guess.trim() : null, lastActivityAt: Date.now()});
+  }catch(e){}
+  drawGuessInput = "";
+}
+
+async function submitDrawGuess(){
+  await revealDrawAnswer(drawGuessInput);
+}
+
+async function doNextDraw(){
+  const settings = roomData.settings || {turnSeconds:12, totalRounds:6};
+  const nextRound = (roomData.round||1)+1;
+  const {id: guesserId, resetUsed: gReset} = pickMLBase(playersData.map(p=>p.id), roomData.usedGuesserIds);
+  const {key, text, subject, place, action, resetUsed: pReset} = pickDrawPrompt(roomData.usedDrawPromptIdx);
+  const usedGuesserIds = gReset ? [guesserId] : [...(roomData.usedGuesserIds||[]), guesserId];
+  const usedDrawPromptIdx = pReset ? [key] : [...(roomData.usedDrawPromptIdx||[]), key];
+  const drawOrder = playersData.filter(p=>p.id!==guesserId).slice().sort((a,b)=>a.joinedAt-b.joinedAt).map(p=>p.id);
+  try{
+    await clearAllStrokes();
+    await roomRef.update({
+      phase:"drawing", round: nextRound, currentGuesserId: guesserId, currentPrompt: text,
+      drawSubject: subject, drawPlace: place, drawAction: action,
+      drawOrder, currentDrawerIndex:0, roundEndAt: Date.now()+settings.turnSeconds*1000,
+      usedGuesserIds, usedDrawPromptIdx, guesserGuess:null, lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function doEndDraw(){
+  try{ await roomRef.update({phase:"ended", lastActivityAt: Date.now()}); }catch(e){}
+}
+
+async function doRematchDraw(){
+  try{
+    await clearAllStrokes();
+    await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({ready:false})));
+    await roomRef.update({
+      phase:"lobby", round:0, currentPrompt:null, currentGuesserId:null, drawOrder:[], currentDrawerIndex:0,
+      roundEndAt:null, usedGuesserIds:[], usedDrawPromptIdx:[], guesserGuess:null, lastActivityAt: Date.now()
+    });
+  }catch(e){}
 }
 
 // ---------- 誰最可能：資料 / 動作 ----------
