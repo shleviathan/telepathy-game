@@ -74,12 +74,60 @@ button:disabled{opacity:.4; cursor:not-allowed;}
 .tab.active{background:var(--ink); color:var(--surface); border-color:var(--ink);}
 
 .gamepicker{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
-.gamecard{text-align:left; padding:14px 12px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); display:flex; flex-direction:column; gap:4px; min-height:92px; justify-content:center;}
+.gamecard{text-align:left; padding:10px 11px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); display:grid; grid-template-columns:38px 1fr; column-gap:10px; row-gap:1px; align-items:center; align-content:center; min-height:0;}
 .gamecard.on{background:linear-gradient(150deg, var(--accent), #c9ab98); border-color:var(--accent); color:var(--accent-ink);}
-.gamecard .gc-emoji{font-size:22px;}
-.gamecard .gc-title{font-weight:800; font-size:14.5px;}
-.gamecard .gc-desc{font-size:11.5px; opacity:.8; line-height:1.35;}
+.gamecard .gc-icon{grid-row:1/3; width:38px; height:38px; border-radius:11px; display:grid; place-items:center; background:linear-gradient(145deg, color-mix(in srgb, var(--gc) 30%, transparent), color-mix(in srgb, var(--gc) 12%, transparent)); color:var(--gc); box-shadow:0 0 0 1px color-mix(in srgb, var(--gc) 28%, transparent) inset;}
+.gamecard .gc-icon svg{width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.gamecard.on .gc-icon{background:rgba(255,255,255,.3); color:var(--accent-ink); box-shadow:none;}
+.gamecard .gc-title{font-weight:800; font-size:14.5px; align-self:end;}
+.gamecard .gc-desc{font-size:11px; opacity:.8; line-height:1.3; align-self:start;}
 .gamecard.wide{grid-column:1/-1;}
+.cnteams{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.cnteamcol{border-radius:14px; padding:10px; border:1.5px solid var(--line); background:var(--surface-2); display:flex; flex-direction:column; gap:8px;}
+.cnteamcol.red{border-color:#c0594e; background:color-mix(in srgb, #c0594e 12%, var(--surface-2));}
+.cnteamcol.blue{border-color:#4f7cae; background:color-mix(in srgb, #4f7cae 12%, var(--surface-2));}
+.cnteamhead{font-weight:800; font-size:14px;}
+.cnteammembers{display:flex; flex-direction:column; gap:4px; min-height:48px;}
+.cnmember{font-size:13.5px; font-weight:600; word-break:break-all;}
+.cnmember.empty{color:var(--muted); font-weight:500;}
+.cnjoinbtn{padding:9px 6px; font-size:13px; margin:0;}
+.cattag.cn-red,.cn-red{color:#c0594e;}
+.cattag.cn-blue,.cn-blue{color:#4f7cae;}
+.cnrole{font-weight:800; font-size:16px; text-align:center;}
+.cnrole.red{color:#c0594e;}
+.cnrole.blue{color:#4f7cae;}
+.cnstatus{margin-bottom:10px; padding:12px 14px; border-radius:14px; background:var(--surface); border:1.5px solid var(--line);}
+.cnscores{display:flex; gap:8px; margin-bottom:8px;}
+.cnpill{flex:1; text-align:center; font-weight:800; font-size:14px; padding:6px 0; border-radius:10px; color:#fff;}
+.cnpill.red{background:#c0594e;}
+.cnpill.blue{background:#4f7cae;}
+.cnturn{font-weight:700; font-size:14.5px;}
+.cnclue{margin-top:6px; font-size:16px;}
+.cnclue b{font-size:20px;}
+.cnleft{margin-left:10px; font-size:13px; color:var(--muted); font-weight:700;}
+.cngrid{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; width:100%;}
+.cncard{position:relative; display:flex; align-items:center; justify-content:center; text-align:center; min-height:62px; padding:4px 2px; border-radius:10px; border:2px solid var(--line); background:var(--surface-2); color:var(--ink); font-weight:800; font-size:clamp(12px,3.9vw,16px); line-height:1.15; word-break:break-all; user-select:none;}
+.cncard.tap{cursor:pointer;}
+.cncard.sel{outline:3px solid var(--accent); outline-offset:1px; transform:translateY(-2px);}
+.cncard.hint.red{background:color-mix(in srgb, #c0594e 24%, var(--surface-2)); border-color:#c0594e;}
+.cncard.hint.blue{background:color-mix(in srgb, #4f7cae 24%, var(--surface-2)); border-color:#4f7cae;}
+.cncard.hint.neutral{background:color-mix(in srgb, #cbbfa9 32%, var(--surface-2)); border-color:#b8aa91; border-style:dashed;}
+.cncard.hint.assassin{background:color-mix(in srgb, #25201c 28%, var(--surface-2)); border-color:#25201c;}
+.cncard.rev.red{background:#c0594e; border-color:#c0594e; color:#fff;}
+.cncard.rev.blue{background:#4f7cae; border-color:#4f7cae; color:#fff;}
+.cncard.rev.neutral{background:#cbbfa9; border-color:#cbbfa9; color:#4a4038;}
+.cncard.rev.assassin{background:#25201c; border-color:#25201c; color:#fff;}
+.cnmark{position:absolute; top:1px; right:3px; font-size:11px;}
+.cnlogtoggle{margin:0; text-align:left; padding:4px 0;}
+.joword{font-size:34px; font-weight:900; text-align:center; letter-spacing:.08em; padding:16px 8px; border-radius:16px; background:linear-gradient(150deg, var(--accent), #c9ab98); color:var(--accent-ink); margin:6px 0 12px; word-break:break-all;}
+.jolabel{font-size:11px; font-weight:800; letter-spacing:.2em; color:var(--muted); text-align:center;}
+.jostatus{display:flex; gap:8px; margin-bottom:8px;}
+.jopill{flex:1; text-align:center; font-weight:800; font-size:12.5px; padding:6px 4px; border-radius:10px; background:var(--surface); border:1.5px solid var(--line);}
+.jochips{display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 8px;}
+.jochip{padding:8px 14px; border-radius:20px; font-weight:800; font-size:17px; background:var(--surface-2); border:1.5px solid var(--line); color:var(--ink);}
+.jochip.off,.jotext.off{text-decoration:line-through; opacity:.55;}
+.jochip.off{border-style:dashed;}
+.jotext{font-weight:800; font-size:15px; text-align:right;}
 
 .playerlist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
 .playerlist li{display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 13px;}
@@ -296,7 +344,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v4.0";
+const APP_VERSION = "v4.4";
 const APP_UPDATED = "2026-10-06";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -546,6 +594,302 @@ function avalonNightInfo(roles, myId, orderedIds){
 let avalonPickDraft = [];
 let avalonPickKey = "";
 let avalonPeek = false; // 是否展開「我的身分」提示
+
+const CN_WORDS = [
+  "蘋果","香蕉","西瓜","葡萄","橘子","檸檬","草莓","鳳梨","芒果","櫻桃","椰子","柚子",
+  "蓮霧","木瓜","荔枝","龍眼","柿子","桃子","梨子","番茄","米飯","麵條","饅頭","餃子",
+  "包子","麵包","蛋糕","餅乾","糖果","巧克力","牛奶","豆漿","咖啡","果汁","啤酒","茶葉",
+  "蜂蜜","奶油","起司","雞蛋","豆腐","青菜","白菜","蘿蔔","洋蔥","大蒜","辣椒","玉米",
+  "馬鈴薯","香菇","花生","核桃","紅豆","粽子","湯圓","火鍋","牛排","漢堡","披薩","壽司",
+  "老虎","獅子","大象","長頸鹿","熊貓","猴子","兔子","老鼠","松鼠","狐狸","狼","熊",
+  "鹿","馬","牛","羊","豬","狗","貓","雞","鴨","鵝","老鷹","麻雀",
+  "烏鴉","鴿子","企鵝","貓頭鷹","孔雀","蝙蝠","鯨魚","海豚","鯊魚","章魚","螃蟹","蝦子",
+  "烏龜","青蛙","蛇","鱷魚","蝴蝶","蜜蜂","螞蟻","蚊子","蒼蠅","蜘蛛","蜻蜓","蝸牛",
+  "毛毛蟲","恐龍","龍","鳳凰","駱駝","袋鼠","河馬","犀牛","斑馬","海豹","水母","海星",
+  "太陽","月亮","星星","白雲","彩虹","閃電","雷","雨","雪","風","颱風","地震",
+  "火山","海洋","河流","湖泊","瀑布","沙漠","森林","草原","山","島嶼","沙灘","洞穴",
+  "橋","道路","隧道","城堡","皇宮","寺廟","教堂","學校","醫院","銀行","郵局","警局",
+  "餐廳","商店","市場","超市","圖書館","博物館","動物園","公園","機場","車站","港口","工廠",
+  "農場","燈塔","金字塔","長城","鐵塔","廣場","花園","廚房","臥室","浴室","陽台","屋頂",
+  "地下室","桌子","椅子","沙發","床","櫃子","書架","鏡子","窗戶","門","樓梯","電梯",
+  "地毯","窗簾","枕頭","棉被","時鐘","檯燈","電視","冰箱","洗衣機","冷氣","電風扇","微波爐",
+  "電話","手機","電腦","鍵盤","滑鼠","耳機","相機","收音機","電池","插頭","燈泡","蠟燭",
+  "火柴","鑰匙","鎖","刀子","叉子","湯匙","筷子","盤子","碗","杯子","茶壺","鍋子",
+  "瓶子","籃子","袋子","箱子","盒子","雨傘","帽子","眼鏡","手錶","戒指","項鍊","皮帶",
+  "手套","襪子","鞋子","靴子","外套","裙子","褲子","襯衫","領帶","圍巾","口罩","背包",
+  "錢包","書包","毛巾","肥皂","牙刷","梳子","剪刀","針","線","紙","筆","鉛筆",
+  "橡皮擦","尺","書","報紙","雜誌","地圖","信","郵票","鈔票","硬幣","支票","帳單",
+  "卡片","照片","畫","相框","旗子","鼓","吉他","鋼琴","小提琴","喇叭","笛子","麥克風",
+  "舞台","電影","戲劇","魔術","馬戲團","煙火","風箏","氣球","積木","娃娃","拼圖","骰子",
+  "撲克牌","棋盤","足球","籃球","棒球","網球","桌球","羽毛球","游泳","跑步","滑雪","拳擊",
+  "柔道","射箭","釣魚","露營","登山","潛水","衝浪","騎馬","舉重","體操","汽車","公車",
+  "火車","捷運","飛機","輪船","腳踏車","機車","卡車","救護車","消防車","計程車","直升機","火箭",
+  "潛水艇","太空船","帆船","木筏","馬車","纜車","醫生","護士","老師","學生","警察","消防員",
+  "軍人","廚師","農夫","漁夫","律師","法官","記者","作家","畫家","歌手","演員","工程師",
+  "司機","店員","國王","皇后","王子","公主","騎士","海盜","巫師","小丑","忍者","偵探",
+  "間諜","強盜","天使","惡魔","鬼","幽靈","外星人","機器人","雪人","稻草人","頭","眼睛",
+  "耳朵","鼻子","嘴巴","牙齒","舌頭","頭髮","手","腳","心臟","骨頭","血","皮膚",
+  "肚子","背","肩膀","膝蓋","指甲","拳頭","翅膀","尾巴","角","爪子","羽毛","鱗片",
+  "殼","根","葉子","花","樹","草","竹子","種子","果實","稻米","麥子","荷花",
+  "玫瑰","向日葵","仙人掌","蘑菇","金","銀","銅","鐵","鋼","玻璃","石頭","木頭",
+  "塑膠","橡膠","棉花","絲綢","皮革","鑽石","珍珠","水晶","黃金","沙子","泥土","冰",
+  "火","水","煙","灰","霧","影子","光","聲音","夢","鬼火","時間","春天",
+  "夏天","秋天","冬天","早晨","夜晚","假期","生日","婚禮","節日","派對","錢","價格",
+  "地址","名字","號碼","密碼","答案","問題","秘密","謎語","故事","歌曲","詩","笑話",
+  "遊戲","比賽","冠軍","獎盃","獎牌","勝利","戰爭","和平","軍隊","士兵","大砲","盾牌",
+  "劍","弓","槍","炸彈","坦克","戰艦","城牆","陷阱","寶藏","寶箱","皇冠","魔杖",
+  "水晶球","燈籠"
+];
+
+// ---------- 機密代號：純邏輯 ----------
+const CN_TEAM_LABEL = {red:"紅隊", blue:"藍隊"};
+const CN_TEAM_EMOJI = {red:"🔴", blue:"🔵"};
+function cnOther(t){ return t==="red" ? "blue" : "red"; }
+function cnShuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+// 25 張牌：先手隊 9、另一隊 8、中立 7、刺客 1；字從詞庫不重複抽出。
+function cnGenBoard(startTeam, words){
+  const pool = cnShuffle(words || CN_WORDS).slice(0,25);
+  const other = cnOther(startTeam);
+  const colors = [];
+  for(let i=0;i<9;i++) colors.push(startTeam);
+  for(let i=0;i<8;i++) colors.push(other);
+  for(let i=0;i<7;i++) colors.push("neutral");
+  colors.push("assassin");
+  const shuffled = cnShuffle(colors);
+  return pool.map((w,i)=>({word:w, color:shuffled[i], revealed:false}));
+}
+function cnCountLeft(board){
+  let red = 0, blue = 0;
+  (board||[]).forEach(c=>{ if(!c.revealed){ if(c.color==="red") red++; else if(c.color==="blue") blue++; } });
+  return {red, blue};
+}
+// 提示規則：去頭尾空白、不能空、不超過 8 字、不能含空白、不能跟盤面上「還沒翻開」的字相同或互相包含。
+function cnValidateClue(raw, board){
+  const word = String(raw==null?"":raw).trim();
+  if(!word) return {ok:false, msg:"請輸入提示詞", word};
+  if(/\s/.test(word)) return {ok:false, msg:"提示只能是一個詞，不能有空白", word};
+  if(Array.from(word).length>8) return {ok:false, msg:"提示最多 8 個字", word};
+  const lw = word.toLowerCase();
+  const bad = (board||[]).find(c=>{
+    if(c.revealed) return false;
+    const bw = String(c.word).toLowerCase();
+    return bw===lw || lw.indexOf(bw)>=0 || bw.indexOf(lw)>=0;
+  });
+  if(bad) return {ok:false, msg:`提示不能和盤面上的「${bad.word}」相同或互相包含`, word};
+  return {ok:true, msg:"", word};
+}
+// 翻一張牌的結果（純函式）。st = {board, turnTeam, guessesLeft}；牌已翻開或不存在回傳 null。
+// 自己顏色：繼續（猜測次數用完就換隊）；中立/對方顏色：換隊；刺客：當前隊伍立刻輸；任一隊的牌全翻開，該隊獲勝。
+function cnApplyGuess(st, idx){
+  const card = st.board[idx];
+  if(!card || card.revealed) return null;
+  const team = st.turnTeam, other = cnOther(team);
+  const board = st.board.map((c,i)=> i===idx ? {word:c.word, color:c.color, revealed:true} : c);
+  const left = cnCountLeft(board);
+  let phase = "guess", turnTeam = team, guessesLeft = st.guessesLeft, winner = null, winReason = null, outcome;
+  const endTurn = ()=>{ phase = "clue"; turnTeam = other; guessesLeft = 0; };
+  if(card.color==="assassin"){
+    outcome = "assassin"; winner = other; winReason = "assassin"; phase = "ended"; guessesLeft = 0;
+  } else {
+    outcome = card.color===team ? "own" : (card.color==="neutral" ? "neutral" : "opponent");
+    if(left.red===0) winner = "red"; else if(left.blue===0) winner = "blue";
+    if(winner){ winReason = "all"; phase = "ended"; guessesLeft = 0; }
+    else if(outcome==="own"){ guessesLeft = st.guessesLeft-1; if(guessesLeft<=0) endTurn(); }
+    else endTurn();
+  }
+  return {board, phase, turnTeam, guessesLeft, winner, winReason, outcome, redLeft:left.red, blueLeft:left.blue};
+}
+// 隨機分隊：洗牌後輪流分給兩隊，人數差最多 1，奇數時哪隊多一人也是隨機。
+function cnBalanceTeams(ids){
+  const sh = cnShuffle(ids);
+  const first = Math.random()<0.5 ? "red" : "blue";
+  const res = {};
+  sh.forEach((id,i)=>{ res[id] = (i%2===0) ? first : cnOther(first); });
+  return res;
+}
+function cnPickOne(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+// 開始條件檢查：回傳錯誤訊息，空字串代表可以開始。
+function cnTeamsError(players){
+  if(players.some(p=>p.team!=="red" && p.team!=="blue")) return "還有人沒加入隊伍，請每位玩家選一隊（或由房主按「隨機分隊」）";
+  const r = players.filter(p=>p.team==="red").length, b = players.filter(p=>p.team==="blue").length;
+  if(r<2 || b<2) return "每一隊至少需要 2 位玩家";
+  return "";
+}
+let cnSel = null;          // 猜測者目前點選、還沒按「確定翻開」的牌
+let cnSelKey = "";         // 換回合/換階段時自動清掉選取
+let cnClueDraft = "";      // 指揮官輸入中的提示詞（背景重畫不能洗掉）
+let cnNumDraft = 1;
+let cnClueError = "";
+let cnLogOpen = false;
+
+const JO_WORDS = [
+  "蘋果","香蕉","西瓜","草莓","葡萄","芒果","鳳梨","檸檬","木瓜","櫻桃","米飯","麵條",
+  "餃子","包子","麵包","蛋糕","餅乾","冰淇淋","巧克力","披薩","漢堡","薯條","火鍋","壽司",
+  "牛排","炸雞","便當","豆腐","雞蛋","牛奶","咖啡","奶茶","啤酒","果汁","可樂","開水",
+  "蜂蜜","辣椒","大蒜","洋蔥","老虎","獅子","大象","長頸鹿","熊貓","猴子","兔子","老鼠",
+  "松鼠","狐狸","企鵝","海豚","鯊魚","烏龜","青蛙","蝴蝶","蜜蜂","螞蟻","蜘蛛","恐龍",
+  "貓頭鷹","鸚鵡","孔雀","鴿子","蝙蝠","袋鼠","駱駝","斑馬","鱷魚","章魚","太陽","月亮",
+  "星星","彩虹","閃電","颱風","地震","火山","海洋","沙漠","森林","瀑布","島嶼","沙灘",
+  "山洞","河流","湖泊","草原","雪人","雲朵","學校","醫院","銀行","郵局","餐廳","超市",
+  "圖書館","博物館","動物園","公園","機場","車站","港口","工廠","農場","燈塔","城堡","寺廟",
+  "教堂","廣場","桌子","椅子","沙發","冰箱","電視","電腦","手機","相機","耳機","鍵盤",
+  "滑鼠","時鐘","鏡子","窗簾","枕頭","棉被","雨傘","眼鏡","手錶","戒指","帽子","鞋子",
+  "襪子","外套","裙子","褲子","圍巾","手套","口罩","背包","錢包","鑰匙","剪刀","牙刷",
+  "毛巾","肥皂","梳子","筆記本","鉛筆","橡皮擦","汽車","公車","火車","捷運","飛機","輪船",
+  "腳踏車","機車","計程車","直升機","火箭","潛水艇","帆船","纜車","救護車","消防車","卡車","摩托車",
+  "熱氣球","滑板","醫生","護士","老師","學生","警察","消防員","廚師","農夫","律師","記者",
+  "作家","畫家","歌手","演員","司機","店員","國王","公主","騎士","海盜","巫師","小丑",
+  "忍者","偵探","天使","惡魔","幽靈","機器人","外星人","超人","足球","籃球","棒球","網球",
+  "桌球","羽毛球","游泳","跑步","滑雪","拳擊","釣魚","露營","登山","潛水","衝浪","騎馬",
+  "射箭","體操","瑜珈","舉重","鋼琴","吉他","小提琴","笛子","麥克風","喇叭","舞台","電影",
+  "魔術","煙火","風箏","氣球","積木","娃娃","拼圖","骰子","撲克牌","象棋","麻將","春天",
+  "夏天","秋天","冬天","早晨","夜晚","假期","生日","婚禮","派對","聖誕節","過年","紅包",
+  "月餅","粽子","元宵","鞭炮","燈籠","禮物","爸爸","媽媽","哥哥","姐姐","弟弟","妹妹",
+  "爺爺","奶奶","朋友","鄰居","老闆","同事","情人","新娘","皇帝","室友","客人","小偷",
+  "快樂","悲傷","生氣","害怕","驚喜","無聊","緊張","孤單","幸福","愛情","友情","夢想",
+  "回憶","秘密","自由","和平","勇氣","運氣","時間","金錢","頭髮","眼睛","耳朵","鼻子",
+  "嘴巴","牙齒","舌頭","手指","心臟","肚子","膝蓋","肩膀","拳頭","指甲","骨頭","皮膚",
+  "眉毛","鬍子","鑽石","黃金","珍珠","水晶","玻璃","木頭","石頭","鋼鐵","塑膠","棉花",
+  "火焰","冰塊","煙霧","影子","聲音","香水","蠟燭","火柴","電池","燈泡","寶藏","地圖",
+  "指南針","望遠鏡","顯微鏡","放大鏡","廚房","臥室","浴室","陽台","屋頂","地下室","樓梯","電梯",
+  "走廊","大門","馬桶","浴缸","蓮蓬頭","洗衣機","冷氣","電風扇","微波爐","烤箱","吸塵器","掃把",
+  "書本","報紙","雜誌","信封","郵票","鈔票","硬幣","護照","身分證","網路","遊戲","簡訊",
+  "照片","影片","音樂","歌曲","笑話","故事","謎語","電話","密碼","網站","訊息","直播",
+  "廣告","新聞","天氣","麵粉","砂糖","鹽巴","醬油","胡椒"
+];
+
+// ---------- 只有一個：純邏輯 ----------
+function joShuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+// 比對用的正規化：全形轉半形、轉小寫，去掉空白與標點符號。
+function joNorm(s){
+  let out = "";
+  for(const ch of String(s==null?"":s)){
+    const c = ch.codePointAt(0);
+    if(c===0x3000) out += " ";
+    else if(c>=0xFF01 && c<=0xFF5E) out += String.fromCodePoint(c-0xFEE0);
+    else out += ch;
+  }
+  return out.toLowerCase().replace(/[\s\p{P}\p{S}​-‍﻿]/gu, "");
+}
+function joTotal(settings){ return settings && settings.totalRounds===7 ? 7 : 13; }
+function joKeyOf(rd){ return `${(rd&&rd.round)||0}|${(rd&&rd.deckIndex)||0}|${(rd&&rd.guesserId)||""}`; }
+// 牌堆：洗牌後取 totalRounds+2 個字（猜錯會連帶丟掉下一張，多備 2 張）。
+function joBuildDeck(total, words){
+  return joShuffle(words || JO_WORDS).slice(0, total+2);
+}
+// 提示規則：去頭尾空白、不能空、不能含空白、最多 8 字、不能和神祕詞相同或互相包含。
+function joValidateHint(raw, word){
+  const text = String(raw==null?"":raw).trim();
+  if(!text) return {ok:false, msg:"請輸入提示", text};
+  if(/\s/.test(text)) return {ok:false, msg:"提示只能是一個詞，不能有空白", text};
+  if(Array.from(text).length>8) return {ok:false, msg:"提示最多 8 個字", text};
+  const nt = joNorm(text), nw = joNorm(word);
+  if(!nt) return {ok:false, msg:"提示不能只有符號", text};
+  if(nw && (nt===nw || nt.indexOf(nw)>=0 || nw.indexOf(nt)>=0)) return {ok:false, msg:"提示不能和答案相同或互相包含", text};
+  return {ok:true, msg:"", text};
+}
+// 結算提示：正規化後相同的提示，只要有 2 人以上寫一樣，全部作廢（包含寫的人都算）。
+// 回傳的 validHints 順序是洗牌過的（不會洩漏是誰寫的）。word 有給的話，順便把違規提示也作廢。
+function joResolveHints(hints, eligibleIds, word){
+  const entries = [];
+  (eligibleIds||[]).forEach(pid=>{
+    const raw = hints ? hints[pid] : null;
+    if(raw==null) return;
+    const text = String(raw).trim();
+    entries.push({pid, text, n: joNorm(text)});
+  });
+  const count = {};
+  entries.forEach(e=>{ count[e.n] = (count[e.n]||0)+1; });
+  const kept = [], removedIds = [];
+  entries.forEach(e=>{
+    const bad = !e.n || count[e.n]>=2 || (word!=null && !joValidateHint(e.text, word).ok);
+    if(bad) removedIds.push(e.pid); else kept.push({pid:e.pid, text:e.text});
+  });
+  return {validHints: joShuffle(kept), removedIds};
+}
+function joGuessCorrect(guess, word){
+  const g = joNorm(guess);
+  return !!g && g===joNorm(word);
+}
+// 一輪結算：答對 +1 分、用 1 張；跳過用 1 張；答錯用 2 張（下一張牌也丟掉）。
+function joApplyResult(st, action){
+  const cardsUsed = st.cardsUsed||0, score = st.score||0;
+  if(action==="correct") return {cardsUsed: cardsUsed+1, score: score+1, verdict:"correct"};
+  if(action==="skip") return {cardsUsed: cardsUsed+1, score, verdict:"skip"};
+  return {cardsUsed: cardsUsed+2, score, verdict:"wrong"};
+}
+// 房主改判（同義詞）：只有「猜錯」且還沒改判過才能改，改完等於答對：+1 分、用牌數變成只用 1 張。
+function joOverride(st){
+  if(st.verdict!=="wrong" || st.overridden) return null;
+  return {cardsUsed: (st.cardsUsed||0)-1, score: (st.score||0)+1, verdict:"correct", overridden:true};
+}
+// 這輪結束後：下一張牌的位置（猜錯要多丟一張）與是否結束。
+function joAfterRound(st){
+  const nextIndex = (st.deckIndex||0) + (st.verdict==="wrong" ? 2 : 1);
+  const over = (st.cardsUsed||0) >= st.total || nextIndex >= st.deckLen;
+  return {nextIndex, over};
+}
+// 猜詞者依加入順序輪流；目前這位不在名單或離開了也能從他的位置往後找；找不到在場的人回傳 null。
+function joNextGuesser(order, currentId, presentIds){
+  const n = (order||[]).length;
+  if(!n) return null;
+  const present = new Set(presentIds||[]);
+  const start = order.indexOf(currentId);
+  for(let k=1;k<=n;k++){
+    const id = order[(start+k) % n];
+    if(present.has(id)) return id;
+  }
+  return null;
+}
+function joEligible(order, guesserId, presentIds){
+  const present = new Set(presentIds||[]);
+  return (order||[]).filter(id=> id!==guesserId && present.has(id));
+}
+// 換下一輪（或結束）要寫進房間的欄位。fd = 目前房間資料；cardsUsed/nextIndex = 這輪結算後的值。
+function joAdvancePatch(fd, cardsUsed, nextIndex, presentIds){
+  const total = joTotal(fd.settings);
+  const over = cardsUsed>=total || nextIndex>=(fd.deck||[]).length;
+  const nextG = over ? null : joNextGuesser(fd.guesserOrder||[], fd.guesserId, presentIds);
+  const elig = nextG ? joEligible(fd.guesserOrder||[], nextG, presentIds) : [];
+  if(over || !nextG || elig.length<1) return {phase:"ended", cardsUsed, deckIndex: nextIndex};
+  return {
+    phase:"clue", round:(fd.round||0)+1, deckIndex: nextIndex, cardsUsed, guesserId: nextG, clueEligible: elig,
+    hints:{}, validHints:[], removedIds:[], joGuess:null, joVerdict:null, joOverridden:false
+  };
+}
+// 評語：13 張為基準，7 張的局依比例換算。
+function joRating(score, total){
+  let s = Math.round((score||0)/total*13);
+  if(score<total && s>=13) s = 12;
+  if(s>=13) return "完美！";
+  if(s===12) return "太神啦";
+  if(s===11) return "太強了";
+  if(s>=9) return "很優秀";
+  if(s>=7) return "不錯喔";
+  if(s>=5) return "普通";
+  return "再接再厲";
+}
+const JO_VERDICT_LABEL = {correct:"✅ 猜中", wrong:"❌ 猜錯", skip:"⏭️ 跳過"};
+let joHintDraft = "";      // 提示者輸入中的提示（背景重畫不能洗掉）
+let joHintError = "";
+let joGuessDraft = "";     // 猜詞者輸入中的答案
+let joGuessError = "";
+let joDraftKey = "";       // 換輪/換猜詞者時自動清掉草稿
+let joRenderedKey = "";    // 目前畫面對應的階段+輪次，用來判斷輸入中可不可以略過重畫
 
 function avatarOf(p){ return (p && p.avatar) || "🙂"; }
 const QUESTIONS = [
@@ -869,6 +1213,26 @@ function render(){
     if(phase==="ended") return renderAvalonEnded(isHost);
     return renderConnecting();
   }
+  if(gameType==="codenames"){
+    if(phase==="lobby") return renderLobby(isHost);
+    if(phase==="clue" || phase==="guess" || phase==="ended"){
+      // 指揮官正在輸入提示時，背景更新不要整頁重畫（會讓輸入框失焦、鍵盤收起）；階段一變就會照常重畫。
+      const ae = document.activeElement;
+      if(phase==="clue" && ae && ae.id==="cnClueInput") return;
+      return renderCnGame(me, isHost);
+    }
+    return renderConnecting();
+  }
+  if(gameType==="justone"){
+    if(phase==="lobby") return renderLobby(isHost);
+    if(phase==="clue" || phase==="guess" || phase==="result" || phase==="ended"){
+      // 正在輸入提示/答案時，背景更新不要整頁重畫（會讓輸入框失焦、鍵盤收起）；階段或輪次一變就會照常重畫。
+      const ae = document.activeElement;
+      if(ae && ((phase==="clue" && ae.id==="joHintInput") || (phase==="guess" && ae.id==="joGuessInput")) && joRenderedKey===phase+"|"+joKeyOf(roomData)) return;
+      return renderJoGame(me, isHost);
+    }
+    return renderConnecting();
+  }
   if(phase==="lobby") return renderLobby(isHost);
   if(phase==="question") return renderQuestion(me, isHost);
   if(phase==="reveal") return renderReveal(isHost);
@@ -887,29 +1251,39 @@ function renderHome(){
         <label>選擇遊戲</label>
         <div class="gamepicker">
           <button class="gamecard ${homeGameType==='telepathy'?'on':''}" data-game="telepathy">
-            <span class="gc-emoji">🔮</span>
+            <span class="gc-icon" style="--gc:#9a86b8"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="5.2"/><circle cx="15" cy="12" r="5.2"/><path d="M12 4.2v1.6M12 18.2v1.6" /></svg></span>
             <span class="gc-title">心電感應</span>
             <span class="gc-desc">大家一起選，跟別人不一樣就扣分</span>
           </button>
           <button class="gamecard ${homeGameType==='mostlikely'?'on':''}" data-game="mostlikely">
-            <span class="gc-emoji">🙋</span>
+            <span class="gc-icon" style="--gc:var(--gold)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7.2l2 2 3-4.4 3 4.4 2-2v4.2H7z"/><circle cx="12" cy="15" r="2.2"/><path d="M6.8 21.2c.4-3 2.4-4.4 5.2-4.4s4.8 1.4 5.2 4.4"/></svg></span>
             <span class="gc-title">誰最可能</span>
             <span class="gc-desc">選出全場最像的那個人</span>
           </button>
           <button class="gamecard ${homeGameType==='draw'?'on':''}" data-game="draw">
-            <span class="gc-emoji">🎨</span>
+            <span class="gc-icon" style="--gc:#d08a6a"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.4L16 4.8a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6L8.4 18.8z"/><path d="M14.2 6.6l3.2 3.2M5.2 15.6l3.2 3.2"/></svg></span>
             <span class="gc-title">接力畫猜</span>
             <span class="gc-desc">大家接力畫一張圖，猜謎者猜猜是什麼</span>
           </button>
           <button class="gamecard ${homeGameType==='werewolf'?'on':''}" data-game="werewolf">
-            <span class="gc-emoji">🐺</span>
+            <span class="gc-icon" style="--gc:#7c8aa8"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.6A8 8 0 1 1 9.4 4.5a6.4 6.4 0 0 0 10.1 10.1z"/><path d="M17 4v3M15.5 5.5h3"/></svg></span>
             <span class="gc-title">狼人殺</span>
             <span class="gc-desc">藏好身分，白天投票揭發狼人</span>
           </button>
-          <button class="gamecard wide ${homeGameType==='avalon'?'on':''}" data-game="avalon">
-            <span class="gc-emoji">🗡️</span>
+          <button class="gamecard ${homeGameType==='avalon'?'on':''}" data-game="avalon">
+            <span class="gc-icon" style="--gc:var(--warn)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.2 2.4v9.6H9.8V5.2z"/><path d="M6.5 14.8h11"/><path d="M12 14.8v4.4"/><circle cx="12" cy="20.6" r="1.1"/></svg></span>
             <span class="gc-title">阿瓦隆</span>
             <span class="gc-desc">隱藏陣營，組隊出任務，找出邪惡爪牙</span>
+          </button>
+          <button class="gamecard ${homeGameType==='codenames'?'on':''}" data-game="codenames">
+            <span class="gc-icon" style="--gc:var(--safe)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.6"/><path d="M14.6 14.6L20 20"/><circle cx="10.5" cy="10.5" r="1.4"/></svg></span>
+            <span class="gc-title">機密代號</span>
+            <span class="gc-desc">兩隊對抗，用一個詞帶隊友找特工</span>
+          </button>
+          <button class="gamecard wide ${homeGameType==='justone'?'on':''}" data-game="justone">
+            <span class="gc-icon" style="--gc:#b88aa0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H11.5L7.5 19.5v-4H5z"/><path d="M10.6 9l1.9-1.2v6.2"/></svg></span>
+            <span class="gc-title">只有一個</span>
+            <span class="gc-desc">全員合作，提示重複就作廢，幫猜詞的人猜中</span>
           </button>
         </div>
       ` : ``}
@@ -931,6 +1305,8 @@ function renderHome(){
         : homeGameType==='draw' ? '3 人以上更好玩，大家接力在畫布上畫畫，猜謎者最後猜猜是什麼。'
         : homeGameType==='werewolf' ? '4 人以上才好玩，記得留一個人當主持人念流程也可以，但用手機會更順。'
         : homeGameType==='avalon' ? '5～10 人，隱藏身分的組隊推理遊戲。'
+        : homeGameType==='codenames' ? '4～10 人，分成兩隊的猜詞遊戲。'
+        : homeGameType==='justone' ? '3～8 人，合作型猜詞遊戲。'
         : '2 人以上就能玩，選到跟別人不一樣的人會被扣分。')
       : '輸入房號就能加入朋友的房間，遊戲類型由房主決定。'}</p>
   `;
@@ -968,18 +1344,20 @@ function renderLobby(isHost){
   const isDraw = gameType === "draw";
   const isWolf = gameType === "werewolf";
   const isAvalon = gameType === "avalon";
-  const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : isDraw ? {turnSeconds:12, totalRounds:6} : isWolf ? {roles:{seer:true, witch:false, hunter:false, guard:false}} : isAvalon ? {roles:{percival:true, morgana:true, mordred:false}} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
+  const isCodenames = gameType === "codenames";
+  const isJustone = gameType === "justone";
+  const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : isDraw ? {turnSeconds:12, totalRounds:6} : isWolf ? {roles:{seer:true, witch:false, hunter:false, guard:false}} : isAvalon ? {roles:{percival:true, morgana:true, mordred:false}} : isCodenames ? {} : isJustone ? {totalRounds:13} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
   const enabledCats = new Set(settings.enabledCategories && settings.enabledCategories.length ? settings.enabledCategories : ALL_CATEGORY_IDS);
   const mode = settings.mode || "normal";
   const hostId = players.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.id;
   const readyCount = players.filter(p=>p.ready).length;
   const allReady = players.length>0 && players.every(p=>p.ready);
-  const minPlayers = isAvalon ? 5 : isWolf ? 4 : 2;
-  const maxPlayers = isAvalon ? 10 : Infinity;
+  const minPlayers = isAvalon ? 5 : (isWolf || isCodenames) ? 4 : isJustone ? 3 : 2;
+  const maxPlayers = (isAvalon || isCodenames) ? 10 : isJustone ? 8 : Infinity;
   const canStart = players.length>=minPlayers && players.length<=maxPlayers && allReady;
   const me = players.find(p=>p.id===identity.playerId);
   const myReady = !!(me && me.ready);
-  const gameLabel = isML ? '誰最可能' : isDraw ? '接力畫猜' : isWolf ? '狼人殺' : isAvalon ? '阿瓦隆' : '心電感應';
+  const gameLabel = isML ? '誰最可能' : isDraw ? '接力畫猜' : isWolf ? '狼人殺' : isAvalon ? '阿瓦隆' : isCodenames ? '機密代號' : isJustone ? '只有一個' : '心電感應';
   app.innerHTML = `
     <div class="card">
       <div class="badge purple">LOBBY · ${gameLabel}</div>
@@ -994,9 +1372,9 @@ function renderLobby(isHost){
       <ul class="playerlist">
         ${players.map(p=>{
           const isMe = p.id===identity.playerId;
-          const scoreSpan = isML
+          const scoreSpan = isCodenames ? cnTeamTag(p.team) : isML
             ? `<span class="strikes">🎯 ${p.mlScore||0}</span>`
-            : (isDraw || isWolf || isAvalon) ? `` : `<span class="strikes">${p.strikes||0}</span>`;
+            : (isDraw || isWolf || isAvalon || isJustone) ? `` : `<span class="strikes">${p.strikes||0}</span>`;
           const rightSide = isMe
             ? `<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`
             : (isHost
@@ -1010,13 +1388,14 @@ function renderLobby(isHost){
           ${AVATARS.map(a=>`<button class="avatarbtn ${(playersData.find(p=>p.id===identity.playerId)||{}).avatar===a?'on':''}" data-avatar2="${a}">${a}</button>`).join("")}
         </div>
       ` : ``}
+      ${isCodenames ? renderCnLobbyTeams(isHost) : ``}
       <button class="btn-secondary" id="readyBtn" style="margin-top:12px;">${myReady?'✅ 已準備（點擊取消）':'我準備好了'}</button>
     </div>
 
     <div class="iconrow">
       <button class="iconbtn" id="openHelpBtn"><span class="iconbtn-emoji">❓</span><span>玩法</span></button>
-      <button class="iconbtn" id="openSettingsBtn"><span class="iconbtn-emoji">⚙️</span><span>設定</span></button>
-      ${(isML || isDraw || isWolf || isAvalon) ? `` : `<button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>`}
+      ${isCodenames ? `` : `<button class="iconbtn" id="openSettingsBtn"><span class="iconbtn-emoji">⚙️</span><span>設定</span></button>`}
+      ${(isML || isDraw || isWolf || isAvalon || isCodenames || isJustone) ? `` : `<button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>`}
       <button class="iconbtn" id="toggleSoundBtn"><span class="iconbtn-emoji">${soundEnabled?'🔊':'🔇'}</span><span>音效</span></button>
     </div>
 
@@ -1026,9 +1405,9 @@ function renderLobby(isHost){
     ` : `<p class="helper">等待房主 <b>${esc(players.find(p=>p.id===hostId)?.name||'')}</b> 開始遊戲…</p>`}
     <button class="btn-ghost" id="leaveBtn">離開房間</button>
 
-    ${settingsModalOpen ? (isML ? renderMLSettingsModal(isHost, settings) : isDraw ? renderDrawSettingsModal(isHost, settings) : isWolf ? renderWerewolfSettingsModal(isHost, settings) : isAvalon ? renderAvalonSettingsModal(isHost, settings) : renderSettingsModal(isHost, settings, enabledCats, mode)) : ``}
-    ${bankModalOpen && !isML && !isDraw && !isWolf && !isAvalon ? renderBankModal() : ``}
-    ${helpModalOpen ? (isML ? renderMLHelpModal() : isDraw ? renderDrawHelpModal() : isWolf ? renderWerewolfHelpModal() : isAvalon ? renderAvalonHelpModal() : renderHelpModal()) : ``}
+    ${settingsModalOpen ? (isML ? renderMLSettingsModal(isHost, settings) : isDraw ? renderDrawSettingsModal(isHost, settings) : isWolf ? renderWerewolfSettingsModal(isHost, settings) : isAvalon ? renderAvalonSettingsModal(isHost, settings) : isJustone ? renderJoSettingsModal(isHost, settings) : renderSettingsModal(isHost, settings, enabledCats, mode)) : ``}
+    ${bankModalOpen && !isML && !isDraw && !isWolf && !isAvalon && !isCodenames && !isJustone ? renderBankModal() : ``}
+    ${helpModalOpen ? (isML ? renderMLHelpModal() : isDraw ? renderDrawHelpModal() : isWolf ? renderWerewolfHelpModal() : isAvalon ? renderAvalonHelpModal() : isCodenames ? renderCnHelpModal() : isJustone ? renderJoHelpModal() : renderHelpModal()) : ``}
   `;
   document.getElementById("copyBtn").onclick = ()=>{ navigator.clipboard && navigator.clipboard.writeText(identity.code).catch(()=>{}); };
   document.getElementById("shareBtn").onclick = ()=>{
@@ -1064,15 +1443,17 @@ function renderLobby(isHost){
     };
   });
   document.getElementById("openHelpBtn").onclick = ()=>{ helpModalOpen = true; render(); };
-  document.getElementById("openSettingsBtn").onclick = ()=>{ settingsModalOpen = true; render(); };
+  const openSettingsBtn = document.getElementById("openSettingsBtn");
+  if(openSettingsBtn) openSettingsBtn.onclick = ()=>{ settingsModalOpen = true; render(); };
+  if(isCodenames) wireCnLobby(isHost);
   const openBankBtn = document.getElementById("openBankBtn");
   if(openBankBtn) openBankBtn.onclick = ()=>{ bankModalOpen = true; render(); };
   if(isHost){
-    document.getElementById("startBtn").onclick = isML ? doStartML : isDraw ? doStartDraw : isWolf ? doStartWerewolf : isAvalon ? doStartAvalon : doStartGame;
+    document.getElementById("startBtn").onclick = isML ? doStartML : isDraw ? doStartDraw : isWolf ? doStartWerewolf : isAvalon ? doStartAvalon : isCodenames ? doStartCodenames : isJustone ? doStartJustone : doStartGame;
   }
-  if(settingsModalOpen){ if(isML) wireMLSettingsModal(isHost, settings); else if(isDraw) wireDrawSettingsModal(isHost, settings); else if(isWolf) wireWerewolfSettingsModal(isHost, settings); else if(isAvalon) wireAvalonSettingsModal(isHost, settings); else wireSettingsModal(isHost, settings); }
-  if(bankModalOpen && !isML && !isDraw && !isWolf && !isAvalon) wireQuestionBank();
-  if(helpModalOpen){ if(isML) wireMLHelpModal(); else if(isDraw) wireDrawHelpModal(); else if(isWolf) wireWerewolfHelpModal(); else if(isAvalon) wireAvalonHelpModal(); else wireHelpModal(); }
+  if(settingsModalOpen){ if(isML) wireMLSettingsModal(isHost, settings); else if(isDraw) wireDrawSettingsModal(isHost, settings); else if(isWolf) wireWerewolfSettingsModal(isHost, settings); else if(isAvalon) wireAvalonSettingsModal(isHost, settings); else if(isJustone) wireJoSettingsModal(isHost, settings); else wireSettingsModal(isHost, settings); }
+  if(bankModalOpen && !isML && !isDraw && !isWolf && !isAvalon && !isCodenames && !isJustone) wireQuestionBank();
+  if(helpModalOpen){ if(isML) wireMLHelpModal(); else if(isDraw) wireDrawHelpModal(); else if(isWolf) wireWerewolfHelpModal(); else if(isAvalon) wireAvalonHelpModal(); else if(isCodenames) wireCnHelpModal(); else if(isJustone) wireJoHelpModal(); else wireHelpModal(); }
 }
 let lobbyAvatarPickOpen = false;
 
@@ -2931,6 +3312,498 @@ function renderAvalonEnded(isHost){
   document.getElementById("leaveBtn").onclick = doLeave;
 }
 
+// ---------- 機密代號：畫面 ----------
+
+function cnTeamTag(team){
+  return (team==="red"||team==="blue")
+    ? `<span class="cattag cn-${team}">${CN_TEAM_EMOJI[team]} ${CN_TEAM_LABEL[team]}</span>`
+    : `<span class="cattag">未分隊</span>`;
+}
+function cnName(id){
+  const p = playersData.find(pp=>pp.id===id);
+  return p ? `${avatarOf(p)} ${esc(p.name)}` : "🙂 ?";
+}
+
+function renderCnHelpModal(){
+  return `
+    <div class="modalbackdrop" id="helpBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>❓ 玩法說明</h2>
+          <button class="modalclose" id="helpClose">✕</button>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--safe);">目標</div>
+          <p class="helper" style="text-align:left; margin:0;">4～10 人分成紅隊與藍隊（每隊至少 2 人）。盤面有 25 個詞，每隊各有一位「指揮官」知道哪些詞屬於自己的特工。哪一隊先找出所有己方特工，哪一隊就獲勝。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--accent);">一個回合</div>
+          <p class="helper" style="text-align:left; margin:0;">① 輪到的隊伍，指揮官用「一個詞 + 一個數字」暗示隊友（例如「水果 2」），詞不能是盤面上還沒翻開的字，也不能和它們互相包含。② 隊友（猜測者）點一張牌，再按「確定翻開」。最多可以猜 數字＋1 次；數字 0 代表不限次數。③ 翻到自己隊的顏色可以繼續猜；翻到中立或對方的顏色，回合立刻結束；也可以隨時按「結束猜測」。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--warn);">刺客</div>
+          <p class="helper" style="text-align:left; margin:0;">盤面有 1 張黑色刺客牌，誰翻到，那一隊立刻輸掉。</p>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <div class="helptitle">注意</div>
+          <p class="helper" style="text-align:left; margin:0;">指揮官的畫面會顯示所有牌的顏色，請不要讓隊友偷看你的手機。這款遊戲沒有真正的登入驗證，「隱藏資訊」單純是畫面上不顯示給別人看，請大家憑默契。遊戲開始後才加入的人會變成旁觀者。若有人離開卡住回合，房主可以按「強制換隊」。</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireCnHelpModal(){
+  const helpClose = document.getElementById("helpClose");
+  if(helpClose) helpClose.onclick = ()=>{ helpModalOpen = false; render(); };
+  const helpBackdrop = document.getElementById("helpBackdrop");
+  if(helpBackdrop) helpBackdrop.onclick = (e)=>{ if(e.target.id==="helpBackdrop"){ helpModalOpen = false; render(); } };
+}
+
+// 大廳：兩個隊伍欄位 + 加入/換隊按鈕 + 房主的隨機分隊。
+function renderCnLobbyTeams(isHost){
+  const me = playersData.find(p=>p.id===identity.playerId);
+  const myTeam = me && me.team;
+  const members = t => playersData.filter(p=>p.team===t);
+  const col = t => `
+    <div class="cnteamcol ${t}">
+      <div class="cnteamhead">${CN_TEAM_EMOJI[t]} ${CN_TEAM_LABEL[t]}（${members(t).length}）</div>
+      <div class="cnteammembers">
+        ${members(t).map(p=>`<div class="cnmember">${avatarOf(p)} ${esc(p.name)}${p.id===identity.playerId?' <span class="you">YOU</span>':''}</div>`).join("") || `<div class="cnmember empty">還沒有人</div>`}
+      </div>
+      <button class="btn-secondary cnjoinbtn" data-cnteam="${t}" ${myTeam===t?'disabled':''}>${myTeam===t?'你在這隊':(myTeam?'換到這隊':'加入這隊')}</button>
+    </div>`;
+  const unassigned = playersData.filter(p=>p.team!=="red" && p.team!=="blue");
+  return `
+    <label style="margin-top:14px;">分隊（每隊至少 2 人）</label>
+    <div class="cnteams">${col("red")}${col("blue")}</div>
+    ${unassigned.length ? `<p class="helper" style="text-align:left; margin:8px 0 0;">還沒選隊：${unassigned.map(p=>`${avatarOf(p)} ${esc(p.name)}`).join("、")}</p>` : ``}
+    ${isHost ? `<button class="btn-secondary" id="cnRandomBtn" style="margin-top:10px;">🎲 隨機分隊</button>` : ``}
+  `;
+}
+function wireCnLobby(isHost){
+  document.querySelectorAll("[data-cnteam]").forEach(b=> b.onclick = ()=> doCnJoinTeam(b.dataset.cnteam));
+  const rb = document.getElementById("cnRandomBtn");
+  if(rb) rb.onclick = doCnRandomTeams;
+}
+
+const CN_WIN_REASON = {
+  all: "找出了所有己方特工",
+  assassin: "對方翻到了刺客"
+};
+function cnClueLogHtml(){
+  const log = roomData.clueLog || [];
+  return `
+    <div class="card" style="margin-top:12px;">
+      <button class="btn-ghost cnlogtoggle" id="cnLogBtn">${cnLogOpen?'▾':'▸'} 提示紀錄（${log.length}）</button>
+      ${cnLogOpen ? (log.length ? `<ul class="playerlist" style="margin-top:8px;">${log.slice().reverse().map(l=>`<li><span class="pname">${CN_TEAM_EMOJI[l.team]||''} ${esc(CN_TEAM_LABEL[l.team]||'')}：${esc(l.word)}</span><span class="cattag">${l.num===0?'無限':l.num}</span></li>`).join("")}</ul>` : `<p class="helper" style="margin:8px 0 0;">還沒有提示</p>`) : ``}
+    </div>`;
+}
+
+function renderCnGame(me, isHost){
+  const rd = roomData;
+  const phase = rd.phase;
+  const board = rd.board || [];
+  const myTeam = (me.team==="red" || me.team==="blue") ? me.team : null;
+  const sm = rd.spymasters || {};
+  const isSpy = !!myTeam && sm[myTeam]===me.id;
+  const ended = phase==="ended";
+  const turn = rd.turnTeam;
+  const canGuess = phase==="guess" && myTeam===turn && !isSpy;
+  const canClue = phase==="clue" && myTeam===turn && isSpy;
+  const showAll = isSpy || ended;
+  const key = `${(rd.clueLog||[]).length}|${turn}|${phase}`;
+  if(cnSelKey!==key){ cnSelKey = key; cnSel = null; if(phase==="clue"){ cnClueDraft = ""; cnClueError = ""; } }
+  if(cnSel!=null && (!board[cnSel] || board[cnSel].revealed)) cnSel = null;
+  const left = cnCountLeft(board);
+  const redLeft = (typeof rd.redLeft==="number") ? rd.redLeft : left.red;
+  const blueLeft = (typeof rd.blueLeft==="number") ? rd.blueLeft : left.blue;
+  const clue = rd.clue;
+  const spyGone = !!turn && !!sm[turn] && !playersData.some(p=>p.id===sm[turn]);
+
+  const roleHtml = myTeam
+    ? `<div class="cnrole ${myTeam}">${CN_TEAM_EMOJI[myTeam]} 你是${CN_TEAM_LABEL[myTeam]} · ${isSpy?'指揮官':'猜測者'}</div>${isSpy && !ended ? `<p class="helper" style="margin:6px 0 0; text-align:left;">你看得到所有牌的顏色，別讓隊友偷看你的手機。</p>` : ``}`
+    : `<div class="cnrole">👀 旁觀者</div><p class="helper" style="margin:6px 0 0; text-align:left;">這局開始時你還沒加入隊伍，只能看盤面，沒有操作權限。下一局再一起玩！</p>`;
+
+  const statusHtml = ended ? `` : `
+    <div class="cnstatus">
+      <div class="cnscores"><span class="cnpill red">🔴 剩 ${redLeft}</span><span class="cnpill blue">🔵 剩 ${blueLeft}</span></div>
+      <div class="cnturn">輪到 <b class="cn-${turn}">${CN_TEAM_EMOJI[turn]||''} ${esc(CN_TEAM_LABEL[turn]||'')}</b> ${phase==="clue"?'給提示':'猜測'}</div>
+      ${clue && phase==="guess" ? `<div class="cnclue">提示：<b>${esc(clue.word)}</b> · ${clue.num===0?'無限':clue.num}<span class="cnleft">剩 ${(rd.guessesLeft||0)>=99?'無限':(rd.guessesLeft||0)} 次猜測</span></div>` : ``}
+      <div class="helper" style="margin:6px 0 0; text-align:left;">指揮官：${sm.red?`🔴 ${cnName(sm.red)}`:''}　${sm.blue?`🔵 ${cnName(sm.blue)}`:''}</div>
+    </div>`;
+
+  let bannerHtml = "";
+  if(ended){
+    const w = rd.winner;
+    const lost = myTeam && myTeam!==w;
+    bannerHtml = `
+      <div class="${lost?'losebanner':'winbanner'}">
+        <h2>${CN_TEAM_EMOJI[w]||''} ${esc(CN_TEAM_LABEL[w]||'')}勝利！</h2>
+        <p>${esc(CN_TEAM_LABEL[w]||'')}${esc(CN_WIN_REASON[rd.winReason]||'贏得了比賽')}</p>
+      </div>`;
+  }
+
+  const cardsHtml = board.map((c,i)=>{
+    const cls = ["cncard"];
+    if(c.revealed) cls.push("rev", c.color);
+    else if(showAll) cls.push("hint", c.color);
+    const tappable = canGuess && !c.revealed;
+    if(tappable) cls.push("tap");
+    if(cnSel===i) cls.push("sel");
+    const mark = (!c.revealed && showAll && c.color==="assassin") ? `<span class="cnmark">☠</span>` : ``;
+    return `<div class="${cls.join(" ")}" data-cn="${i}">${esc(c.word)}${mark}</div>`;
+  }).join("");
+
+  let actionHtml = "";
+  if(!ended){
+    if(phase==="clue"){
+      if(canClue){
+        actionHtml = `
+          <div class="card" style="margin-top:12px;">
+            <label style="margin-top:0;">給你的隊友一個提示詞</label>
+            <input type="text" id="cnClueInput" maxlength="8" placeholder="一個詞（最多 8 字）" autocomplete="off" value="${esc(cnClueDraft)}">
+            <label>數字（0 = 不限次數）</label>
+            <div class="catchips" id="cnNums">
+              ${[0,1,2,3,4,5,6,7,8,9].map(n=>`<button class="catchip ${cnNumDraft===n?'on':''}" data-cnnum="${n}">${n}</button>`).join("")}
+            </div>
+            <div class="error">${esc(cnClueError)}</div>
+            <button class="btn-primary" id="cnClueBtn">送出提示</button>
+          </div>`;
+      } else if(myTeam===turn && myTeam){
+        actionHtml = `<div class="card" style="margin-top:12px; text-align:center;"><p style="margin:0;">等待你們的指揮官給提示…</p></div>`;
+      } else {
+        actionHtml = `<div class="card" style="margin-top:12px; text-align:center;"><p style="margin:0;">等待 ${esc(CN_TEAM_LABEL[turn]||'')}指揮官給提示…</p></div>`;
+      }
+    } else if(phase==="guess"){
+      if(canGuess){
+        const sel = cnSel!=null ? board[cnSel] : null;
+        actionHtml = `
+          <div class="card" style="margin-top:12px;">
+            <p class="helper" style="margin:0 0 10px; text-align:left;">${sel?`已選「<b>${esc(sel.word)}</b>」，確定要翻開嗎？`:'點一張牌選取，再按「確定翻開」。'}</p>
+            <button class="btn-primary" id="cnConfirmBtn" ${sel?'':'disabled'}>確定翻開</button>
+            <button class="btn-secondary" id="cnEndBtn" style="margin-top:10px;">結束猜測</button>
+          </div>`;
+      } else if(isSpy && myTeam===turn){
+        actionHtml = `<div class="card" style="margin-top:12px; text-align:center;"><p style="margin:0;">隊友猜測中，你只能安靜等待…</p></div>`;
+      } else {
+        actionHtml = `<div class="card" style="margin-top:12px; text-align:center;"><p style="margin:0;">${esc(CN_TEAM_LABEL[turn]||'')}猜測中…</p></div>`;
+      }
+    }
+    if(isHost){
+      actionHtml += `<button class="btn-ghost" id="cnForceBtn">${spyGone?'指揮官已離開，換一位指揮官':'強制換隊（跳過目前回合）'}</button>`;
+    }
+  }
+
+  const endedExtra = ended ? `
+    ${isHost ? `<button class="btn-primary" id="rematchBtn" style="margin-top:12px;">再來一局</button>` : `<p class="helper">等待房主開始下一局</p>`}` : ``;
+
+  app.innerHTML = `
+    <div class="card">
+      ${roleHtml}
+    </div>
+    ${bannerHtml}
+    ${statusHtml}
+    <div class="cngrid">${cardsHtml}</div>
+    ${actionHtml}
+    ${cnClueLogHtml()}
+    ${endedExtra}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    ${helpModalOpen ? renderCnHelpModal() : ``}
+  `;
+
+  document.getElementById("leaveBtn").onclick = doLeave;
+  if(helpModalOpen) wireCnHelpModal();
+  const logBtn = document.getElementById("cnLogBtn");
+  if(logBtn) logBtn.onclick = ()=>{ cnLogOpen = !cnLogOpen; render(); };
+  if(canGuess){
+    document.querySelectorAll(".cncard.tap").forEach(el=> el.onclick = ()=>{
+      const i = parseInt(el.dataset.cn, 10);
+      cnSel = (cnSel===i) ? null : i;
+      render();
+    });
+    const cb = document.getElementById("cnConfirmBtn");
+    if(cb) cb.onclick = doCnGuess;
+    document.getElementById("cnEndBtn").onclick = doCnEndGuess;
+  }
+  if(canClue){
+    const input = document.getElementById("cnClueInput");
+    input.oninput = e=>{ cnClueDraft = e.target.value; };
+    input.onkeydown = e=>{ if(e.key==="Enter"){ e.preventDefault(); input.blur(); doCnSubmitClue(); } };
+    document.querySelectorAll("[data-cnnum]").forEach(b=> b.onclick = ()=>{
+      cnNumDraft = parseInt(b.dataset.cnnum, 10);
+      document.querySelectorAll("[data-cnnum]").forEach(x=> x.classList.toggle("on", x===b));
+    });
+    document.getElementById("cnClueBtn").onclick = ()=>{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); doCnSubmitClue(); };
+  }
+  const fb = document.getElementById("cnForceBtn");
+  if(fb) fb.onclick = ()=>{ if(confirm(spyGone?'要幫這隊換一位指揮官嗎？':'要跳過這一隊目前的回合嗎？')) doCnForceSkip(); };
+  if(isHost && ended) document.getElementById("rematchBtn").onclick = doRematchCodenames;
+}
+
+// ---------- 只有一個：畫面 ----------
+function joName(id){
+  const p = playersData.find(pp=>pp.id===id);
+  return p ? `${avatarOf(p)} ${esc(p.name)}` : "🙂 （已離開）";
+}
+
+function renderJoHelpModal(){
+  return `
+    <div class="modalbackdrop" id="helpBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>❓ 玩法說明</h2>
+          <button class="modalclose" id="helpClose">✕</button>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--safe);">目標</div>
+          <p class="helper" style="text-align:left; margin:0;">3～8 人全員合作！每一輪輪流指定一位「猜詞者」，他看不到神祕詞；其他人各寫一個提示，幫他猜中。一局共有 7 或 13 張牌（房主設定），猜中越多越好。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--accent);">一輪流程</div>
+          <p class="helper" style="text-align:left; margin:0;">① 其他人看到神祕詞，各自秘密寫下 1 個提示（最多 8 字，不能有空白，不能和神祕詞相同或互相包含）。② 全部送出後，寫出一樣提示的人通通作廢（包含寫的人都算，整體以去掉空白、標點、大小寫、全半形後比對）。③ 猜詞者只看得到沒被作廢的提示，輸入答案，或選擇跳過。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--warn);">計分</div>
+          <p class="helper" style="text-align:left; margin:0;">猜中：+1 分，用掉 1 張牌。跳過：不得分，用掉 1 張牌。猜錯：不得分，這張和下一張牌都作廢（用掉 2 張牌）。如果猜的是同義詞，房主可以按「改判為正確」（每輪限一次）。</p>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <div class="helptitle">注意</div>
+          <p class="helper" style="text-align:left; margin:0;">牌用完遊戲結束，依得分給評語。猜詞者請不要偷看別人的手機；這款遊戲沒有真正的登入驗證，「隱藏資訊」只是畫面上不顯示，請大家憑默契。遊戲開始後才加入的人會變成旁觀者；有人離開卡住時，房主可以按「強制進入猜測」或「換一位猜詞者」。</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireJoHelpModal(){
+  const helpClose = document.getElementById("helpClose");
+  if(helpClose) helpClose.onclick = ()=>{ helpModalOpen = false; render(); };
+  const helpBackdrop = document.getElementById("helpBackdrop");
+  if(helpBackdrop) helpBackdrop.onclick = (e)=>{ if(e.target.id==="helpBackdrop"){ helpModalOpen = false; render(); } };
+}
+
+function renderJoSettingsModal(isHost, settings){
+  const total = joTotal(settings);
+  return `
+    <div class="modalbackdrop" id="settingsBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>⚙️ 遊戲設定</h2>
+          <button class="modalclose" id="settingsClose">✕</button>
+        </div>
+        <div style="padding-top:4px;">
+          <span style="font-size:14px; font-weight:700; display:block; margin-bottom:10px;">牌數（一局要玩幾張牌）</span>
+          <div class="catchips">
+            ${[7,13].map(n=>`<button class="catchip ${total===n?'on':''}" data-jorounds="${n}" ${isHost?'':'disabled'}>${n} 張</button>`).join("")}
+          </div>
+          ${!isHost ? `<p class="helper" style="margin:16px 0 0;">只有房主可以調整這些設定。</p>` : ``}
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireJoSettingsModal(isHost, settings){
+  document.getElementById("settingsClose").onclick = ()=>{ settingsModalOpen = false; render(); };
+  document.getElementById("settingsBackdrop").onclick = (e)=>{ if(e.target.id==="settingsBackdrop"){ settingsModalOpen = false; render(); } };
+  if(!isHost) return;
+  document.querySelectorAll("[data-jorounds]").forEach(b=>{
+    b.onclick = ()=> updateSettings({totalRounds: parseInt(b.dataset.jorounds, 10)===7 ? 7 : 13});
+  });
+}
+
+function joLogHtml(log){
+  return `<ul class="playerlist">${(log||[]).map((l,i)=>`<li><span class="pname">#${i+1} ${esc(l.word)}</span><span class="cattag" style="margin-top:0;">${esc(JO_VERDICT_LABEL[l.verdict]||'')}${l.overridden?'（改判）':''} · ${joName(l.guesser)}</span></li>`).join("")}</ul>`;
+}
+
+function renderJoGame(me, isHost){
+  const rd = roomData;
+  const phase = rd.phase;
+  const myId = identity.playerId;
+  const total = joTotal(rd.settings);
+  const word = (rd.deck||[])[rd.deckIndex||0] || "";
+  const guesserId = rd.guesserId;
+  const eligible = rd.clueEligible || [];
+  const hints = rd.hints || {};
+  const removed = rd.removedIds || [];
+  const validHints = rd.validHints || [];
+  const role = myId===guesserId ? "guesser" : (eligible.includes(myId) ? "hinter" : "spectator");
+  const ended = phase==="ended";
+  const key = joKeyOf(rd);
+  if(joDraftKey!==key){ joDraftKey = key; joHintDraft = ""; joHintError = ""; joGuessDraft = ""; joGuessError = ""; }
+  joRenderedKey = phase + "|" + key;
+  const isPresent = id=> playersData.some(p=>p.id===id);
+  const guesserGone = !!guesserId && !isPresent(guesserId);
+  const presentEl = eligible.filter(isPresent);
+  const submitted = presentEl.filter(id=> hints[id]!=null);
+  const score = rd.score || 0;
+  const used = Math.min(rd.cardsUsed || 0, total);
+  const verdict = rd.joVerdict;
+
+  const roleHtml = role==="guesser"
+    ? `<div class="cnrole">🤔 你是猜詞者</div>`
+    : role==="hinter"
+    ? `<div class="cnrole">💡 你是提示者</div>`
+    : `<div class="cnrole">👀 旁觀者</div><p class="helper" style="margin:6px 0 0; text-align:left;">這局開始時你還沒加入，只能旁觀，沒有操作權限。下一局再一起玩！</p>`;
+
+  const statusHtml = ended ? `` : `
+    <div class="jostatus">
+      <span class="jopill">🏆 得分 ${score}</span>
+      <span class="jopill">🃏 已用 ${used}/${total}</span>
+      <span class="jopill">第 ${rd.round||1} 輪</span>
+    </div>
+    <p class="helper" style="margin:0 0 10px; text-align:left;">猜詞者：${joName(guesserId)}</p>`;
+
+  const wordHtml = `<div class="jolabel">神祕詞</div><div class="joword">${esc(word)}</div>`;
+  const hintChips = (list, cls)=> list.length ? `<div class="jochips">${list.map(t=>`<span class="jochip ${cls||''}">${esc(t)}</span>`).join("")}</div>` : ``;
+  const progressHtml = `<p class="helper" style="margin:0; text-align:center;">已送出 ${submitted.length}/${presentEl.length}</p>`;
+
+  let bodyHtml = "";
+  if(phase==="clue"){
+    if(role==="guesser"){
+      bodyHtml = `
+        <div class="card" style="text-align:center;">
+          <div style="font-size:42px;">🤔</div>
+          <p style="font-size:18px; font-weight:800; margin:8px 0;">大家正在想提示…</p>
+          ${progressHtml}
+          <p class="helper" style="margin:6px 0 0;">你看不到神祕詞，請別偷看別人的手機喔</p>
+        </div>`;
+    } else if(role==="hinter" && hints[myId]==null){
+      bodyHtml = `
+        <div class="card">
+          ${wordHtml}
+          <label>寫一個提示，幫猜詞者猜出來</label>
+          <input type="text" id="joHintInput" maxlength="8" placeholder="一個詞（最多 8 字）" autocomplete="off" value="${esc(joHintDraft)}">
+          <p class="helper" style="margin:-6px 0 10px; text-align:left;">不能有空白，也不能和神祕詞相同或互相包含。和別人寫一樣的提示會一起作廢！</p>
+          <div class="error">${esc(joHintError)}</div>
+          <button class="btn-primary" id="joHintBtn">送出</button>
+          <div style="margin-top:10px;">${progressHtml}</div>
+        </div>`;
+    } else if(role==="hinter"){
+      bodyHtml = `
+        <div class="card" style="text-align:center;">
+          ${wordHtml}
+          <p style="font-size:17px; font-weight:800; margin:8px 0;">已送出，等待其他人</p>
+          <p class="helper" style="margin:0 0 6px;">你的提示：<b>${esc(hints[myId])}</b></p>
+          ${progressHtml}
+        </div>`;
+    } else {
+      bodyHtml = `
+        <div class="card" style="text-align:center;">
+          ${wordHtml}
+          <p style="font-size:16px; font-weight:800; margin:8px 0;">大家正在寫提示…</p>
+          ${progressHtml}
+        </div>`;
+    }
+  } else if(phase==="guess"){
+    if(role==="guesser"){
+      bodyHtml = `
+        <div class="card">
+          <label style="margin-top:0;">你的提示（${validHints.length}）</label>
+          ${validHints.length ? hintChips(validHints.map(h=>h.text)) : `<p class="helper" style="text-align:left;">所有提示都被作廢了…只能憑直覺猜，或選擇跳過。</p>`}
+          <label>你的答案</label>
+          <input type="text" id="joGuessInput" maxlength="20" placeholder="輸入你猜的詞" autocomplete="off" value="${esc(joGuessDraft)}">
+          <div class="error">${esc(joGuessError)}</div>
+          <button class="btn-primary" id="joGuessBtn">猜！</button>
+          <button class="btn-secondary" id="joSkipBtn" style="margin-top:10px;">跳過</button>
+        </div>`;
+    } else {
+      const removedTexts = removed.map(pid=>hints[pid]).filter(t=>t!=null);
+      bodyHtml = `
+        <div class="card">
+          ${wordHtml}
+          <label>提示</label>
+          ${validHints.length ? hintChips(validHints.map(h=>h.text)) : ``}
+          ${removedTexts.length ? hintChips(removedTexts, "off") : ``}
+          ${(!validHints.length && !removedTexts.length) ? `<p class="helper" style="text-align:left;">沒有任何提示</p>` : ``}
+          <p style="text-align:center; font-weight:800; margin:10px 0 0;">${joName(guesserId)} 正在猜…</p>
+        </div>`;
+    }
+  } else if(phase==="result"){
+    const bannerCls = verdict==="correct" ? "winbanner" : "losebanner";
+    const bannerTitle = verdict==="correct" ? "🎉 猜中了！" : (verdict==="skip" ? "⏭️ 跳過" : "😵 猜錯了");
+    const bannerSub = verdict==="correct"
+      ? (rd.joOverridden ? "房主改判為正確，+1 分" : "+1 分，用掉 1 張牌")
+      : (verdict==="skip" ? "不得分，用掉 1 張牌" : "不得分，這張和下一張牌都作廢（用掉 2 張牌）");
+    const rows = eligible.map(pid=>{
+      const raw = hints[pid];
+      const isRemoved = removed.includes(pid);
+      return `<li><span class="pname">${joName(pid)}</span><span class="jotext ${isRemoved?'off':''}">${raw!=null?esc(raw):'（沒給提示）'}${isRemoved?' <span class="cattag" style="margin-top:0;">重複作廢</span>':''}</span></li>`;
+    }).join("");
+    const after = joAfterRound({cardsUsed: rd.cardsUsed||0, total, deckIndex: rd.deckIndex||0, deckLen: (rd.deck||[]).length, verdict});
+    bodyHtml = `
+      <div class="${bannerCls}">
+        <h2>${bannerTitle}</h2>
+        <p>${esc(bannerSub)}</p>
+      </div>
+      <div class="card">
+        ${wordHtml}
+        <p class="helper" style="margin:0 0 10px; text-align:center;">${joName(guesserId)} 的答案：<b>${verdict==="skip" ? '（跳過）' : esc(rd.joGuess||'')}</b></p>
+        <label>大家的提示</label>
+        <ul class="playerlist">${rows || `<li><span class="pname">（沒有提示者）</span></li>`}</ul>
+      </div>
+      ${isHost ? `
+        ${(verdict==="wrong" && !rd.joOverridden) ? `<button class="btn-secondary" id="joOverrideBtn" style="margin-bottom:10px;">改判為正確（同義詞）</button>` : ``}
+        <button class="btn-primary" id="joNextBtn">${after.over ? '查看最終成績' : '下一輪'}</button>
+      ` : `<p class="helper">等待房主繼續</p>`}`;
+  } else if(ended){
+    const rating = joRating(score, total);
+    const good = Math.round(score/total*13) >= 7;
+    bodyHtml = `
+      <div class="${good?'winbanner':'losebanner'}">
+        <h2>${score} / ${total}　${esc(rating)}</h2>
+        <p>全員合作，共猜中 ${score} 張牌</p>
+      </div>
+      <div class="card">
+        <label style="margin-top:0;">每輪紀錄</label>
+        ${(rd.joLog||[]).length ? joLogHtml(rd.joLog) : `<p class="helper" style="margin:0;">沒有紀錄</p>`}
+      </div>
+      ${isHost ? `<button class="btn-primary" id="rematchBtn">再來一局</button>` : `<p class="helper">等待房主開始下一局</p>`}`;
+  }
+
+  let hostHtml = "";
+  if(isHost && (phase==="clue" || phase==="guess")){
+    if(guesserGone) hostHtml += `<button class="btn-secondary" id="joReplaceBtn" style="margin-top:4px;">猜詞者已離開，換一位猜詞者（跳過這張牌）</button>`;
+    if(phase==="clue") hostHtml += `<button class="btn-ghost" id="joForceBtn">強制進入猜測</button>`;
+  }
+
+  app.innerHTML = `
+    <div class="card">
+      ${roleHtml}
+    </div>
+    ${statusHtml}
+    ${bodyHtml}
+    ${hostHtml}
+    <button class="btn-ghost" id="joHelpBtn">❓ 玩法說明</button>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    ${helpModalOpen ? renderJoHelpModal() : ``}
+  `;
+
+  document.getElementById("leaveBtn").onclick = doLeave;
+  document.getElementById("joHelpBtn").onclick = ()=>{ helpModalOpen = true; render(); };
+  if(helpModalOpen) wireJoHelpModal();
+  const hi = document.getElementById("joHintInput");
+  if(hi){
+    hi.oninput = e=>{ joHintDraft = e.target.value; };
+    hi.onkeydown = e=>{ if(e.key==="Enter"){ e.preventDefault(); hi.blur(); doJoSubmitHint(); } };
+    document.getElementById("joHintBtn").onclick = ()=>{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); doJoSubmitHint(); };
+  }
+  const gi = document.getElementById("joGuessInput");
+  if(gi){
+    gi.oninput = e=>{ joGuessDraft = e.target.value; };
+    gi.onkeydown = e=>{ if(e.key==="Enter"){ e.preventDefault(); gi.blur(); doJoGuess(false); } };
+    document.getElementById("joGuessBtn").onclick = ()=>{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); doJoGuess(false); };
+    document.getElementById("joSkipBtn").onclick = ()=>{ if(confirm("確定要跳過這張牌嗎？（不得分，用掉 1 張牌）")) doJoGuess(true); };
+  }
+  const fb = document.getElementById("joForceBtn");
+  if(fb) fb.onclick = ()=>{ if(confirm("要用目前已送出的提示直接進入猜測嗎？沒送出的人就沒有提示了。")) doJoForce(); };
+  const rb = document.getElementById("joReplaceBtn");
+  if(rb) rb.onclick = ()=>{ if(confirm("要跳過這張牌，換下一位猜詞者嗎？（用掉 1 張牌）")) doJoReplaceGuesser(); };
+  const ob = document.getElementById("joOverrideBtn");
+  if(ob) ob.onclick = doJoOverride;
+  const nb = document.getElementById("joNextBtn");
+  if(nb) nb.onclick = doJoContinue;
+  if(isHost && ended) document.getElementById("rematchBtn").onclick = doRematchJustone;
+}
+
 // ---------- data / actions ----------
 
 async function ensureDb(){
@@ -2973,7 +3846,7 @@ async function doCreate(){
     if(!snap.exists) break;
   }
   const pid = uid();
-  const gameType = homeGameType==='mostlikely' ? 'mostlikely' : (homeGameType==='draw' ? 'draw' : (homeGameType==='werewolf' ? 'werewolf' : (homeGameType==='avalon' ? 'avalon' : 'telepathy')));
+  const gameType = homeGameType==='mostlikely' ? 'mostlikely' : (homeGameType==='draw' ? 'draw' : (homeGameType==='werewolf' ? 'werewolf' : (homeGameType==='avalon' ? 'avalon' : (homeGameType==='codenames' ? 'codenames' : (homeGameType==='justone' ? 'justone' : 'telepathy')))));
   const settings = gameType==='mostlikely'
     ? {duration:25, totalRounds:8}
     : gameType==='draw'
@@ -2982,6 +3855,10 @@ async function doCreate(){
     ? {roles:{seer:true, witch:false, hunter:false, guard:false}}
     : gameType==='avalon'
     ? {roles:{percival:true, morgana:true, mordred:false}}
+    : gameType==='codenames'
+    ? {}
+    : gameType==='justone'
+    ? {totalRounds:13}
     : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"};
   try{
     await ref.set({
@@ -2994,6 +3871,9 @@ async function doCreate(){
       nightDeaths:[], hunterQueue:[], hunterNextPhase:null, voteTally:{}, voteResult:null, winner:null,
       acks:{}, leaderId:null, missionNo:0, missionResults:[], rejectCount:0, teamSelection:[], teamVotes:{}, missionVotes:{},
       lastMissionFails:0, assassinTarget:null, winReason:null,
+      board:[], spymasters:null, startTeam:null, turnTeam:null, clue:null, guessesLeft:0, clueLog:[], redLeft:0, blueLeft:0,
+      deck:[], deckIndex:0, guesserOrder:[], guesserId:null, cardsUsed:0, score:0, clueEligible:[], hints:{}, validHints:[], removedIds:[],
+      joGuess:null, joVerdict:null, joOverridden:false, joLog:[],
       createdAt: Date.now(), lastActivityAt: Date.now()
     });
     await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, mlScore:0, ready:false });
@@ -4066,6 +4946,408 @@ async function doRematchAvalon(){
       phase:"lobby", round:0, roles:{}, acks:{}, leaderId:null, missionNo:0, missionResults:[], rejectCount:0,
       teamSelection:[], teamVotes:{}, missionVotes:{}, lastMissionFails:0, assassinTarget:null,
       winner:null, winReason:null, lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+// ---------- 機密代號：資料 / 動作 ----------
+
+// 租約沒搶到就稍等再試幾次（租約有效 4 秒、不會主動釋放）。
+async function cnLease(){
+  for(let i=0;i<5;i++){
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(lease && lease.acquired) return {acquired:true};
+    await new Promise(r=>setTimeout(r, 1000));
+  }
+  return {acquired:false};
+}
+async function cnFreshPlayers(){
+  const snap = await playersCol.get().catch(()=>({docs:[]}));
+  return snap.docs.map(dd=>({id:dd.id, ...dd.data()})).sort((a,b)=>a.joinedAt-b.joinedAt);
+}
+function cnResetLocal(){ cnSel = null; cnSelKey = ""; cnClueDraft = ""; cnClueError = ""; cnNumDraft = 1; }
+
+async function doCnJoinTeam(team){
+  if(team!=="red" && team!=="blue") return;
+  try{
+    if(!roomData || roomData.phase!=="lobby") return;
+    await playersCol.doc(identity.playerId).update({team});
+  }catch(e){}
+}
+
+async function doCnRandomTeams(){
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="lobby") return;
+    const players = await cnFreshPlayers();
+    const assign = cnBalanceTeams(players.map(p=>p.id));
+    await Promise.all(players.map(p=> playersCol.doc(p.id).update({team: assign[p.id]})));
+  }catch(e){}
+}
+
+function cnNewGameFields(startTeam, spymasters){
+  const board = cnGenBoard(startTeam);
+  const left = cnCountLeft(board);
+  return {
+    phase:"clue", round:1, board, spymasters, startTeam, turnTeam:startTeam,
+    clue:null, guessesLeft:0, clueLog:[], redLeft:left.red, blueLeft:left.blue,
+    winner:null, winReason:null, lastActivityAt: Date.now()
+  };
+}
+
+async function doStartCodenames(){
+  const players = playersData;
+  if(players.length<4){ startError = "至少需要 4 位玩家才能開始機密代號"; render(); return; }
+  if(players.length>10){ startError = "機密代號最多 10 位玩家"; render(); return; }
+  if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
+  const err = cnTeamsError(players);
+  if(err){ startError = err; render(); return; }
+  const spymasters = {
+    red: cnPickOne(players.filter(p=>p.team==="red")).id,
+    blue: cnPickOne(players.filter(p=>p.team==="blue")).id
+  };
+  const startTeam = Math.random()<0.5 ? "red" : "blue";
+  startError = "";
+  cnResetLocal();
+  try{
+    await roomRef.update(cnNewGameFields(startTeam, spymasters));
+  }catch(e){}
+}
+
+async function doCnSubmitClue(){
+  if(voteBusy) return;
+  const v = cnValidateClue(cnClueDraft, (roomData && roomData.board) || []);
+  if(!v.ok){ cnClueError = v.msg; render(); return; }
+  voteBusy = true;
+  const num = Math.max(0, Math.min(9, cnNumDraft|0));
+  try{
+    const lease = await cnLease();
+    if(!lease.acquired){ cnClueError = "目前有人正在操作，請再按一次"; voteBusy=false; render(); return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="clue"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const team = fd.turnTeam;
+    if(!fd.spymasters || fd.spymasters[team]!==identity.playerId){ voteBusy=false; return; }
+    const v2 = cnValidateClue(v.word, fd.board||[]);
+    if(!v2.ok){ cnClueError = v2.msg; voteBusy=false; render(); return; }
+    const log = (fd.clueLog||[]).concat([{team, word:v2.word, num}]);
+    await roomRef.update({
+      phase:"guess", clue:{word:v2.word, num}, guessesLeft: num===0 ? 99 : num+1,
+      clueLog: log, lastActivityAt: Date.now()
+    });
+    cnClueDraft = ""; cnClueError = "";
+    beep(520,70,"sine"); vibrate(15);
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+async function doCnGuess(){
+  if(voteBusy) return;
+  const idx = cnSel;
+  if(idx==null) return;
+  voteBusy = true;
+  try{
+    const lease = await cnLease();
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="guess"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const players = await cnFreshPlayers();
+    const meDoc = players.find(p=>p.id===identity.playerId);
+    const sm = fd.spymasters || {};
+    if(!meDoc || meDoc.team!==fd.turnTeam || sm[fd.turnTeam]===identity.playerId){ voteBusy=false; return; }
+    const res = cnApplyGuess({board: fd.board||[], turnTeam: fd.turnTeam, guessesLeft: fd.guessesLeft||0}, idx);
+    if(!res){ cnSel = null; voteBusy=false; render(); return; }
+    await roomRef.update({
+      board: res.board, phase: res.phase, turnTeam: res.turnTeam, guessesLeft: res.guessesLeft,
+      clue: res.phase==="guess" ? (fd.clue||null) : null,
+      redLeft: res.redLeft, blueLeft: res.blueLeft,
+      winner: res.winner, winReason: res.winReason, lastActivityAt: Date.now()
+    });
+    cnSel = null;
+    if(res.outcome==="own"){ beep(660,90,"sine"); vibrate(20); } else { beep(180,220,"sawtooth"); vibrate([40,40,40]); }
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+async function doCnEndGuess(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await cnLease();
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="guess"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const players = await cnFreshPlayers();
+    const meDoc = players.find(p=>p.id===identity.playerId);
+    const sm = fd.spymasters || {};
+    if(!meDoc || meDoc.team!==fd.turnTeam || sm[fd.turnTeam]===identity.playerId){ voteBusy=false; return; }
+    await roomRef.update({phase:"clue", turnTeam: cnOther(fd.turnTeam), clue:null, guessesLeft:0, lastActivityAt: Date.now()});
+    cnSel = null;
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+// 房主的安全閥：指揮官離開了就換同隊另一位當指揮官；否則直接跳過這隊目前的回合。
+async function doCnForceSkip(){
+  try{
+    const lease = await cnLease();
+    if(!lease.acquired) return;
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists) return;
+    const fd = fresh.data();
+    if(fd.phase!=="clue" && fd.phase!=="guess") return;
+    const players = await cnFreshPlayers();
+    const team = fd.turnTeam;
+    const sm = Object.assign({}, fd.spymasters||{});
+    const spyPresent = players.some(p=>p.id===sm[team]);
+    if(!spyPresent){
+      const cands = players.filter(p=>p.team===team);
+      if(cands.length){
+        sm[team] = cnPickOne(cands).id;
+        await roomRef.update({spymasters: sm, lastActivityAt: Date.now()});
+        return;
+      }
+    }
+    await roomRef.update({phase:"clue", turnTeam: cnOther(team), clue:null, guessesLeft:0, lastActivityAt: Date.now()});
+  }catch(e){}
+}
+
+// 再來一局：保留分隊、直接開新盤面；指揮官輪換成同隊下一位；有隊伍不足 2 人就回大廳重新分隊。
+async function doRematchCodenames(){
+  try{
+    cnResetLocal();
+    const players = await cnFreshPlayers();
+    const fd = (await roomRef.get()).data() || {};
+    const teamed = players.filter(p=>p.team==="red" || p.team==="blue");
+    const reds = teamed.filter(p=>p.team==="red"), blues = teamed.filter(p=>p.team==="blue");
+    if(reds.length<2 || blues.length<2 || teamed.length<4){
+      await Promise.all(players.map(p=> playersCol.doc(p.id).update({ready:false})));
+      await roomRef.update({
+        phase:"lobby", round:0, board:[], spymasters:null, startTeam:null, turnTeam:null, clue:null, guessesLeft:0,
+        clueLog:[], redLeft:0, blueLeft:0, winner:null, winReason:null, lastActivityAt: Date.now()
+      });
+      return;
+    }
+    const next = (list, cur)=>{ const i = list.findIndex(p=>p.id===cur); return list[(i+1)%list.length].id; };
+    const old = fd.spymasters || {};
+    const spymasters = {red: next(reds, old.red), blue: next(blues, old.blue)};
+    const startTeam = Math.random()<0.5 ? "red" : "blue";
+    await roomRef.update(cnNewGameFields(startTeam, spymasters));
+  }catch(e){}
+}
+
+// ---------- 只有一個：資料 / 動作 ----------
+
+// 租約沒搶到就稍等再試幾次（租約有效 4 秒、不會主動釋放）。
+async function joLease(){
+  for(let i=0;i<5;i++){
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(lease && lease.acquired) return {acquired:true};
+    await new Promise(r=>setTimeout(r, 1000));
+  }
+  return {acquired:false};
+}
+async function joFreshPlayers(){
+  const snap = await playersCol.get().catch(()=>({docs:[]}));
+  return snap.docs.map(dd=>({id:dd.id, ...dd.data()})).sort((a,b)=>a.joinedAt-b.joinedAt);
+}
+function joResetLocal(){ joHintDraft = ""; joHintError = ""; joGuessDraft = ""; joGuessError = ""; joDraftKey = ""; joRenderedKey = ""; }
+
+async function doStartJustone(){
+  const players = playersData;
+  if(players.length<3){ startError = "至少需要 3 位玩家才能開始只有一個"; render(); return; }
+  if(players.length>8){ startError = "只有一個最多 8 位玩家"; render(); return; }
+  if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
+  const total = joTotal(roomData.settings);
+  const deck = joBuildDeck(total);
+  const guesserOrder = players.slice().sort((a,b)=>a.joinedAt-b.joinedAt).map(p=>p.id);
+  const guesserId = guesserOrder[0];
+  startError = "";
+  joResetLocal();
+  try{
+    await roomRef.update({
+      phase:"clue", round:1, deck, deckIndex:0, guesserOrder, guesserId, cardsUsed:0, score:0,
+      clueEligible: guesserOrder.filter(id=>id!==guesserId), hints:{}, validHints:[], removedIds:[],
+      joGuess:null, joVerdict:null, joOverridden:false, joLog:[], lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function doJoSubmitHint(){
+  if(voteBusy) return;
+  const rd0 = roomData;
+  if(!rd0 || rd0.phase!=="clue") return;
+  const v = joValidateHint(joHintDraft, (rd0.deck||[])[rd0.deckIndex||0] || "");
+  if(!v.ok){ joHintError = v.msg; render(); return; }
+  voteBusy = true;
+  try{
+    const lease = await joLease();
+    if(!lease.acquired){ joHintError = "目前有人正在操作，請再按一次"; voteBusy=false; render(); return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="clue"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const me = identity.playerId;
+    if(fd.guesserId===me || !(fd.clueEligible||[]).includes(me)){ voteBusy=false; return; }
+    if((fd.hints||{})[me]!=null){ voteBusy=false; return; }
+    const v2 = joValidateHint(v.text, (fd.deck||[])[fd.deckIndex||0] || "");
+    if(!v2.ok){ joHintError = v2.msg; voteBusy=false; render(); return; }
+    const hints = Object.assign({}, fd.hints||{}, {[me]: v2.text});
+    const players = await joFreshPlayers();
+    await roomRef.update({hints, lastActivityAt: Date.now()});
+    joHintDraft = ""; joHintError = "";
+    playVoteSound();
+    const allIn = (fd.clueEligible||[]).filter(id=>players.some(p=>p.id===id)).every(id=> hints[id]!=null);
+    if(allIn) await joResolve(false);
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+// 結算提示（呼叫前要已經拿到租約）：重新讀房間、確認還在 clue 階段，再把重複的提示作廢並進入 guess。
+// force=true 時不要求每個人都送出（房主強制進入猜測）。
+async function joResolve(force){
+  if(resolveBusy) return;
+  resolveBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="clue"){ resolveBusy=false; return; }
+    const fd = fresh.data();
+    const players = await joFreshPlayers();
+    const hints = fd.hints || {};
+    const elig = fd.clueEligible || [];
+    if(!force && !elig.filter(id=>players.some(p=>p.id===id)).every(id=> hints[id]!=null)){ resolveBusy=false; return; }
+    const r = joResolveHints(hints, elig, (fd.deck||[])[fd.deckIndex||0] || "");
+    await roomRef.update({phase:"guess", validHints: r.validHints, removedIds: r.removedIds, lastActivityAt: Date.now()});
+  }catch(e){}
+  resolveBusy = false;
+}
+
+async function doJoForce(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await joLease();
+    if(!lease.acquired){ voteBusy=false; return; }
+    const players = await joFreshPlayers();
+    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
+    await joResolve(true);
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+async function doJoGuess(skip){
+  if(voteBusy) return;
+  let text = "";
+  if(!skip){
+    text = String(joGuessDraft||"").trim();
+    if(!text){ joGuessError = "請輸入你的答案"; render(); return; }
+    if(Array.from(text).length>20){ joGuessError = "答案最多 20 個字"; render(); return; }
+  }
+  voteBusy = true;
+  try{
+    const lease = await joLease();
+    if(!lease.acquired){ joGuessError = "目前有人正在操作，請再按一次"; voteBusy=false; render(); return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="guess"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    if(fd.guesserId!==identity.playerId){ voteBusy=false; return; }
+    const word = (fd.deck||[])[fd.deckIndex||0] || "";
+    const action = skip ? "skip" : (joGuessCorrect(text, word) ? "correct" : "wrong");
+    const r = joApplyResult({cardsUsed: fd.cardsUsed||0, score: fd.score||0}, action);
+    const joLog = (fd.joLog||[]).concat([{word, verdict: r.verdict, guesser: fd.guesserId, overridden:false}]);
+    await roomRef.update({
+      phase:"result", joGuess: skip ? null : text, joVerdict: r.verdict, joOverridden:false,
+      cardsUsed: r.cardsUsed, score: r.score, joLog, lastActivityAt: Date.now()
+    });
+    joGuessDraft = ""; joGuessError = "";
+    if(r.verdict==="correct") playResultSound(true); else if(r.verdict==="wrong") playResultSound(false);
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+// 房主把「猜錯」改判成「猜中」（同義詞）：只能改一次。
+async function doJoOverride(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await joLease();
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="result"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const players = await joFreshPlayers();
+    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
+    const r = joOverride({cardsUsed: fd.cardsUsed||0, score: fd.score||0, verdict: fd.joVerdict, overridden: !!fd.joOverridden});
+    if(!r){ voteBusy=false; return; }
+    const joLog = (fd.joLog||[]).slice();
+    if(joLog.length) joLog[joLog.length-1] = Object.assign({}, joLog[joLog.length-1], {verdict:"correct", overridden:true});
+    await roomRef.update({joVerdict:"correct", joOverridden:true, cardsUsed: r.cardsUsed, score: r.score, joLog, lastActivityAt: Date.now()});
+    playResultSound(true);
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+// 房主按「下一輪」：換下一位猜詞者與下一張牌，或牌用完就結束。
+async function doJoContinue(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="result"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const players = await joFreshPlayers();
+    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
+    const after = joAfterRound({cardsUsed: fd.cardsUsed||0, total: joTotal(fd.settings), deckIndex: fd.deckIndex||0, deckLen: (fd.deck||[]).length, verdict: fd.joVerdict});
+    const patch = joAdvancePatch(fd, fd.cardsUsed||0, after.nextIndex, players.map(p=>p.id));
+    patch.lastActivityAt = Date.now();
+    await roomRef.update(patch);
+    joResetLocal();
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+// 猜詞者離開後沒人能猜，房主可以把這張牌當作跳過、換下一位猜詞者。
+async function doJoReplaceGuesser(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists) { voteBusy=false; return; }
+    const fd = fresh.data();
+    if(fd.phase!=="clue" && fd.phase!=="guess"){ voteBusy=false; return; }
+    const players = await joFreshPlayers();
+    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
+    if(players.some(p=>p.id===fd.guesserId)){ voteBusy=false; return; }
+    const word = (fd.deck||[])[fd.deckIndex||0] || "";
+    const r = joApplyResult({cardsUsed: fd.cardsUsed||0, score: fd.score||0}, "skip");
+    const joLog = (fd.joLog||[]).concat([{word, verdict:"skip", guesser: fd.guesserId, overridden:false}]);
+    const patch = joAdvancePatch(fd, r.cardsUsed, (fd.deckIndex||0)+1, players.map(p=>p.id));
+    patch.joLog = joLog; patch.score = r.score; patch.lastActivityAt = Date.now();
+    await roomRef.update(patch);
+    joResetLocal();
+  }catch(e){}
+  voteBusy = false;
+  render();
+}
+
+// 再來一局：回到大廳（保留玩家與設定），大家重新按準備。
+async function doRematchJustone(){
+  try{
+    joResetLocal();
+    await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({ready:false})));
+    await roomRef.update({
+      phase:"lobby", round:0, deck:[], deckIndex:0, guesserOrder:[], guesserId:null, cardsUsed:0, score:0,
+      clueEligible:[], hints:{}, validHints:[], removedIds:[], joGuess:null, joVerdict:null, joOverridden:false, joLog:[],
+      lastActivityAt: Date.now()
     });
   }catch(e){}
 }
