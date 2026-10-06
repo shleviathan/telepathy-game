@@ -134,6 +134,8 @@ button:disabled{opacity:.4; cursor:not-allowed;}
 .pname{font-weight:800; display:flex; align-items:center; gap:8px;}
 .pname .you{font-size:10px; color:var(--accent); border:1px solid var(--accent); border-radius:6px; padding:1px 6px; letter-spacing:.06em;}
 .pname .host{font-size:10px; color:var(--warn); border:1px solid var(--warn); border-radius:6px; padding:1px 6px; letter-spacing:.06em;}
+.offtag{display:inline-block; font-size:10px; font-weight:700; color:var(--muted); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin-left:4px; letter-spacing:.06em; opacity:.75; vertical-align:middle;}
+.toast{position:fixed; left:50%; bottom:22px; transform:translateX(-50%); max-width:86vw; background:var(--surface); color:var(--ink); border:1.5px solid var(--warn); border-radius:12px; padding:10px 16px; font-size:14px; font-weight:700; z-index:300; opacity:0; transition:opacity .25s; pointer-events:none; box-shadow:0 6px 20px var(--shadow);}
 .strikes{font-family:"JetBrains Mono",monospace; font-weight:800; color:var(--warn); font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:6px;}
 .strikes .dots{display:flex; gap:3px;}
 .dot{width:7px; height:7px; border-radius:50%; background:var(--line);}
@@ -197,6 +199,7 @@ select{
 .error{color:var(--warn); font-size:13px; margin:-6px 0 12px; min-height:1em; font-weight:700;}
 .helper{color:var(--muted); font-size:13px; text-align:center; margin:0 0 14px;}
 .codeshare{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
+.codeshare .lockbadge{font-size:18px;}
 .codeshare.clear-badge{margin-top:22px;}
 .codeshare .code{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:28px; letter-spacing:.22em; color:var(--accent);}
 .copybtn{width:auto; padding:8px 12px; font-size:12px; background:var(--surface-2); color:var(--ink); border:1px solid var(--line); border-radius:10px;}
@@ -344,7 +347,7 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v4.4";
+const APP_VERSION = "v4.5";
 const APP_UPDATED = "2026-10-06";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
@@ -363,6 +366,83 @@ const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.id, c.label]));
 const ALL_CATEGORY_IDS = CATEGORIES.map(c=>c.id);
 const AVATARS = ["🦊","🐱","🐶","🐼","🐨","🐸","🦁","🐵","🐰","🐯","🦄","🐙","🦉","🐢","🐧","🦋","🐻","🐮","🐷","🦖"];
 function randomAvatar(){ return AVATARS[Math.floor(Math.random()*AVATARS.length)]; }
+
+// ---------- 同步：鎖 / 在線狀態 / 房主 的純邏輯（不碰 DOM、不碰資料庫，方便單元測試） ----------
+
+const PRESENCE_TTL_MS = 40000;   // 超過這麼久沒有心跳就當作離線
+const HEARTBEAT_MS = 12000;      // 頁面可見時每隔多久寫一次 lastSeen
+const WATCHDOG_MS = 5000;        // 房主端的看門狗週期
+const LOCK_TTL_MS = 4000;        // 短租約：臨界區間做完就釋放，這只是當機時的保險
+const LOCK_TRIES = 8;            // 搶鎖最多嘗試次數（指數退避 + 抖動）
+
+// 玩家是否在線：沒有 lastSeen 的舊資料用 joinedAt 當最後一次看到的時間。
+function isOnline(p, now){
+  if(!p) return false;
+  const t = p.lastSeen || p.joinedAt || 0;
+  return (now - t) < PRESENCE_TTL_MS;
+}
+function joinOrder(players){
+  return (players||[]).slice().sort((a,b)=> ((a.joinedAt||0)-(b.joinedAt||0)) || (a.id<b.id ? -1 : (a.id>b.id ? 1 : 0)));
+}
+// 在線的玩家 id（selfId 一定算在線：程式正在這個人的裝置上跑）。
+function onlineIdsOf(players, now, selfId){
+  return (players||[]).filter(p=> p.id===selfId || isOnline(p, now)).map(p=>p.id);
+}
+// 房主 = 最早加入的「在線」玩家。規則是確定性的（每個人看到同樣的資料就算出同一位），
+// 原房主離線超過 PRESENCE_TTL_MS 控制權自動轉給下一位；他回來（心跳恢復）且仍是最早的在線者就自動拿回。
+// 沒有任何人在線時退回最早加入者。
+function pickHostId(players, now, selfId){
+  const ord = joinOrder(players);
+  const h = ord.find(p=> p.id===selfId || isOnline(p, now));
+  return h ? h.id : (ord[0] ? ord[0].id : null);
+}
+// 搶鎖失敗後的等待時間：150ms 起跳、上限約 600ms 的指數退避，rnd(0~1) 是抖動，避免大家同時重試。
+function backoffDelay(attempt, rnd){
+  const hi = Math.min(600, 250 * Math.pow(1.4, attempt));
+  return Math.round(150 + (hi - 150) * (rnd==null ? Math.random() : rnd));
+}
+// {"a.b.c":1, "a.d":2} -> {a:{b:{c:1}, d:2}}（Artifact 版 update() 不支援點路徑）
+function expandDotted(flat){
+  const out = {};
+  Object.keys(flat).forEach(k=>{
+    const parts = k.split(".");
+    let o = out;
+    for(let i=0;i<parts.length-1;i++){
+      if(typeof o[parts[i]]!=="object" || o[parts[i]]===null) o[parts[i]] = {};
+      o = o[parts[i]];
+    }
+    o[parts[parts.length-1]] = flat[k];
+  });
+  return out;
+}
+function getPathValue(obj, path){
+  let o = obj;
+  const parts = path.split(".");
+  for(let i=0;i<parts.length;i++){
+    if(o==null || typeof o!=="object") return undefined;
+    o = o[parts[i]];
+  }
+  return o;
+}
+function deepEq(a, b){ try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return false; } }
+// 比較玩家名單時忽略 lastSeen（心跳每 12 秒就會讓資料變一次，不能每次都重畫畫面）。
+function stripSeen(players){
+  return (players||[]).map(p=>{ const q = Object.assign({}, p); delete q.lastSeen; return q; });
+}
+// 這些 id 之中「在線」的。
+function onlineSubset(ids, players, now, selfId){
+  const on = new Set(onlineIdsOf(players, now, selfId));
+  return (ids||[]).filter(id=> on.has(id));
+}
+// 通用「全員送出了嗎」：required 之中在線的人都有交（在線的人數為 0 也算齊了，避免永遠卡住）。
+function allOnlineSubmitted(requiredIds, submitted, players, now, selfId){
+  return onlineSubset(requiredIds, players, now, selfId).every(id=> submitted && submitted[id]!=null);
+}
+// 離線標籤（小的灰色字，大廳與各遊戲畫面共用）。
+function offBadgeHtml(p, now, selfId){
+  if(!p || p.id===selfId || isOnline(p, now)) return "";
+  return `<span class="offtag">離線</span>`;
+}
 
 // 「誰最可能」的題目：不需要主角/選項，每題就是丟一句敘述，大家投票選房間裡的某個人。
 const MOST_LIKELY_PROMPTS = [
@@ -516,6 +596,40 @@ function nextNightStep(afterStep, rolesSettings, roles, players){
   return null;
 }
 
+// 看門狗 / 結算共用的判斷（純函式）：目前狀態下「該不該往前推一步」。離線的人一律當作缺席：
+//   夜晚：醫生/預言家/女巫離線 → 跳過該步驟（安全預設：不守護 / 不查驗 / 不用藥）；
+//         狼人：在線的活狼都投了（或活狼全部離線）→ 結算（沒人投 = 今晚沒人被襲擊）；
+//   獵人離線 → 不開槍；投票階段：在線且活著的玩家都投了 → 結算（沒投的人當棄票）。
+function wwPlan(fd, players, now, selfId){
+  if(!fd) return null;
+  const roles = fd.roles || {};
+  const on = new Set(onlineIdsOf(players, now, selfId));
+  const alive = players.filter(p=> p.alive!==false && roles[p.id]);
+  if(fd.phase==="night"){
+    const step = fd.nightStep;
+    if(step==="wolf"){
+      const wv = fd.wolfVotes || {};
+      const onWolves = alive.filter(p=> roles[p.id]==="wolf" && on.has(p.id));
+      return onWolves.every(w=> wv[w.id]!=null) ? {kind:"resolveWolf"} : null;
+    }
+    if(step==="guard" || step==="seer" || step==="witch"){
+      const holder = alive.find(p=> roles[p.id]===step);
+      if(!holder || !on.has(holder.id)) return {kind:"skipStep", step};
+    }
+    return null;
+  }
+  if(fd.phase==="hunter"){
+    const h = (fd.hunterQueue||[])[0];
+    if(h && !on.has(h)) return {kind:"hunterSkip"};
+    return null;
+  }
+  if(fd.phase==="vote"){
+    const vt = fd.voteTally || {};
+    return alive.filter(p=>on.has(p.id)).every(p=> vt[p.id]!=null) ? {kind:"resolveVote"} : null;
+  }
+  return null;
+}
+
 // 「阿瓦隆」：人數對應的好壞人數、每輪任務隊伍人數，以及角色分配等純邏輯。
 const AVALON_TEAM_SIZES = {
   5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5]
@@ -558,6 +672,50 @@ function avalonNextLeader(orderedIds, currentId){
   if(!orderedIds.length) return null;
   const idx = orderedIds.indexOf(currentId);
   return orderedIds[(idx+1) % orderedIds.length];
+}
+// 隊長輪替但跳過離線的人（從目前隊長的下一位往後找第一位在線者；找不到在線者就維持原本的下一位）。
+function avalonNextOnlineLeader(orderedIds, currentId, onlineSet){
+  const n = orderedIds.length;
+  if(!n) return null;
+  const start = orderedIds.indexOf(currentId);
+  for(let k=1;k<=n;k++){
+    const id = orderedIds[(start+k) % n];
+    if(onlineSet.has(id)) return id;
+  }
+  return avalonNextLeader(orderedIds, currentId);
+}
+// 這局有角色的玩家（依加入順序）。
+function avalonRolled(fd, players){
+  const roles = (fd && fd.roles) || {};
+  return joinOrder(players).filter(p=>roles[p.id]);
+}
+// 看門狗 / 結算共用的判斷（純函式）：目前這個房間狀態下「該不該往前推一步」。
+//   team：隊長離開或離線 → 換下一位在線隊長；vote：在線的有角色玩家都投了 → 結算；
+//   mission：在線的隊員都出牌了（或隊員全離線）→ 結算；assassin：刺客離線 → 當作沒刺中。
+function avalonPlan(fd, players, now, selfId){
+  if(!fd) return null;
+  const rolled = avalonRolled(fd, players);
+  const ids = rolled.map(p=>p.id);
+  const on = new Set(onlineIdsOf(rolled, now, selfId));
+  if(fd.phase==="team"){
+    if(!ids.includes(fd.leaderId) || !on.has(fd.leaderId)){
+      const nxt = avalonNextOnlineLeader(ids, fd.leaderId, on);
+      if(nxt && nxt!==fd.leaderId) return {kind:"leader", leaderId:nxt};
+    }
+    return null;
+  }
+  if(fd.phase==="vote"){
+    return ids.filter(id=>on.has(id)).every(id=> (fd.teamVotes||{})[id]!=null) ? {kind:"resolveVote"} : null;
+  }
+  if(fd.phase==="mission"){
+    const members = (fd.teamSelection||[]).filter(id=>ids.includes(id));
+    return members.filter(id=>on.has(id)).every(id=> (fd.missionVotes||{})[id]!=null) ? {kind:"resolveMission"} : null;
+  }
+  if(fd.phase==="assassin"){
+    const a = ids.find(id=> (fd.roles||{})[id]==="assassin");
+    if(!a || !on.has(a)) return {kind:"assassinMiss"};
+  }
+  return null;
 }
 // 洗牌後先抽壞人：刺客 → 莫甘娜 → 莫德雷德（依開關、名額還有才給），剩下是爪牙；
 // 好人：梅林 → 派西維爾（依開關、名額還有才給），剩下是忠臣。
@@ -765,6 +923,26 @@ const JO_WORDS = [
   "廣告","新聞","天氣","麵粉","砂糖","鹽巴","醬油","胡椒"
 ];
 
+// 看門狗 / 手動安全閥共用的判斷（純函式）。
+//   clue 階段：輪到的隊伍指揮官離線（或不在隊伍裡）→ 換同隊另一位在線的人當指揮官；沒有人可換 → 跳過這隊回合。
+//   guess 階段：這隊的猜測者全都離線 → 跳過這隊回合。
+function cnPlan(fd, players, now, selfId){
+  if(!fd || (fd.phase!=="clue" && fd.phase!=="guess")) return null;
+  const team = fd.turnTeam;
+  if(team!=="red" && team!=="blue") return null;
+  const spyId = (fd.spymasters||{})[team];
+  const on = new Set(onlineIdsOf(players, now, selfId));
+  const members = joinOrder(players).filter(p=>p.team===team);
+  const spyOk = members.some(p=>p.id===spyId) && on.has(spyId);
+  if(fd.phase==="clue"){
+    if(spyOk) return null;
+    const cand = members.find(p=> p.id!==spyId && on.has(p.id));
+    return cand ? {kind:"swap", team, spy: cand.id} : {kind:"skip"};
+  }
+  const guessers = members.filter(p=> p.id!==spyId && on.has(p.id));
+  return guessers.length ? null : {kind:"skip"};
+}
+
 // ---------- 只有一個：純邏輯 ----------
 function joShuffle(arr){
   const a = arr.slice();
@@ -870,6 +1048,20 @@ function joAdvancePatch(fd, cardsUsed, nextIndex, presentIds){
     phase:"clue", round:(fd.round||0)+1, deckIndex: nextIndex, cardsUsed, guesserId: nextG, clueEligible: elig,
     hints:{}, validHints:[], removedIds:[], joGuess:null, joVerdict:null, joOverridden:false
   };
+}
+// 看門狗 / 手動安全閥共用的判斷（純函式）。
+//   clue 階段：猜詞者離開/離線 → 換猜詞者（這張牌當跳過）；在線的提示者都送出了 → 結算進猜測。
+//   guess 階段：猜詞者離開/離線 → 換猜詞者（這張牌當跳過）。
+function joPlan(fd, players, now, selfId){
+  if(!fd || (fd.phase!=="clue" && fd.phase!=="guess")) return null;
+  const on = new Set(onlineIdsOf(players, now, selfId));
+  const g = fd.guesserId;
+  if(g && !on.has(g)) return {kind:"replace"};   // 不在名單裡的人 onlineIdsOf 也不會包含
+  if(fd.phase==="clue"){
+    const elig = (fd.clueEligible||[]).filter(id=>on.has(id));
+    if(elig.every(id=> (fd.hints||{})[id]!=null)) return {kind:"resolve"};
+  }
+  return null;
 }
 // 評語：13 張為基準，7 張的局依比例換算。
 function joRating(score, total){
@@ -1129,7 +1321,8 @@ let unsubRoom=null, unsubPlayers=null, unsubVotes=null, unsubCustomQuestions=nul
 let pollTimer=null;
 let roomData=null, playersData=[], votesData=[], customQuestionsData=[];
 let joinError = "";
-let homeTab="create", homeName="", homeCode="", homeAvatar=randomAvatar();
+let sharedLinkProbePending = false; // 從 ?code= 連結進來時，第一次畫出首頁後偷偷查一次房間有沒有密碼
+let homeTab="create", homeName="", homeCode="", homePassword="", homeAvatar=randomAvatar();
 let homeGameType = "telepathy"; // 開新房間時選的遊戲；加入房間時不用選，遊戲類型由房主的房間決定
 let mlRevealAnimRound = null, mlRevealReady = false, mlSoundedRound = null;
 let mlRankOrder = null, mlRankOrderRound = null; // 「誰最可能」排序中的本地暫存排序（送出前不寫進資料庫）
@@ -1143,7 +1336,7 @@ let drawPromptAnimating = false; // 拉霸動畫播放中，暫停整頁重繪
 try{
   const _params = new URLSearchParams(location.search);
   const _sharedCode = (_params.get("code")||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4);
-  if(_sharedCode){ homeTab = "join"; homeCode = _sharedCode; }
+  if(_sharedCode){ homeTab = "join"; homeCode = _sharedCode; sharedLinkProbePending = true; }
 }catch(e){}
 let tickTimer=null;
 // 房間超過這麼久沒有任何動作，視為過期，加入時會被擋下並順手清掉舊資料。
@@ -1164,7 +1357,7 @@ function render(){
   if(roomData.lastActivityAt && (Date.now()-roomData.lastActivityAt > ROOM_EXPIRE_MS)){ renderExpired(); return; }
   const me = playersData.find(p=>p.id===identity.playerId);
   if(!me){ renderRejoining(); return; }
-  const hostId = playersData.length ? playersData.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0].id : null;
+  const hostId = playersData.length ? pickHostId(playersData, Date.now(), identity.playerId) : null;
   const isHost = hostId === identity.playerId;
   const phase = roomData.phase;
   const gameType = roomData.gameType || "telepathy";
@@ -1289,9 +1482,15 @@ function renderHome(){
       ` : ``}
       <label>你的暱稱</label>
       <input type="text" id="nameInput" maxlength="10" placeholder="例如：小八" value="${esc(homeName)}">
+      ${homeTab==='create' ? `
+        <label>房間密碼（選填，4 位數字）</label>
+        <input type="text" id="passwordInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="4" placeholder="不設密碼就留空" value="${esc(homePassword)}">
+      ` : ``}
       ${homeTab==='join' ? `
         <label>房間代碼</label>
         <input type="text" id="codeInput" class="roomcode-input" maxlength="4" placeholder="XXXX" value="${esc(homeCode)}">
+        <label>房間密碼（若有）</label>
+        <input type="text" id="passwordInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="4" placeholder="沒有密碼就留空" value="${esc(homePassword)}">
       ` : ``}
       <label>選一個代表你的頭像</label>
       <div class="avatargrid">
@@ -1310,9 +1509,14 @@ function renderHome(){
         : '2 人以上就能玩，選到跟別人不一樣的人會被扣分。')
       : '輸入房號就能加入朋友的房間，遊戲類型由房主決定。'}</p>
   `;
-  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ homeTab=t.dataset.tab; joinError=""; render(); });
+  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ homeTab=t.dataset.tab; joinError=""; homePassword=""; render(); });
   document.querySelectorAll("[data-game]").forEach(b=> b.onclick = ()=>{ homeGameType = b.dataset.game; render(); });
   document.getElementById("nameInput").oninput = e=>homeName=e.target.value;
+  const pwEl = document.getElementById("passwordInput");
+  if(pwEl) pwEl.oninput = e=>{ homePassword = e.target.value.replace(/[^0-9]/g,"").slice(0,4); if(e.target.value!==homePassword) e.target.value = homePassword; };
+  // 密碼錯誤/沒填時，把游標帶到密碼欄，讓使用者直接重填。
+  if(joinError && pwEl && /密碼/.test(joinError) && homeTab==='join'){ try{ pwEl.focus(); }catch(e){} }
+  if(sharedLinkProbePending){ sharedLinkProbePending = false; probeSharedRoomPassword(); }
   const codeEl = document.getElementById("codeInput");
   if(codeEl) codeEl.oninput = e=>homeCode = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4);
   document.querySelectorAll("[data-avatar]").forEach(b=> b.onclick = ()=>{ homeAvatar = b.dataset.avatar; render(); });
@@ -1349,7 +1553,7 @@ function renderLobby(isHost){
   const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : isDraw ? {turnSeconds:12, totalRounds:6} : isWolf ? {roles:{seer:true, witch:false, hunter:false, guard:false}} : isAvalon ? {roles:{percival:true, morgana:true, mordred:false}} : isCodenames ? {} : isJustone ? {totalRounds:13} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
   const enabledCats = new Set(settings.enabledCategories && settings.enabledCategories.length ? settings.enabledCategories : ALL_CATEGORY_IDS);
   const mode = settings.mode || "normal";
-  const hostId = players.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.id;
+  const hostId = pickHostId(players, Date.now(), identity.playerId);
   const readyCount = players.filter(p=>p.ready).length;
   const allReady = players.length>0 && players.every(p=>p.ready);
   const minPlayers = isAvalon ? 5 : (isWolf || isCodenames) ? 4 : isJustone ? 3 : 2;
@@ -1364,9 +1568,11 @@ function renderLobby(isHost){
       <div class="codeshare clear-badge">
         <span class="mono" style="font-size:11px;color:var(--muted);letter-spacing:.2em;">房號</span>
         <span class="code">${esc(identity.code)}</span>
+        ${roomData.password ? `<span class="lockbadge" title="這個房間有密碼">🔒</span>` : ``}
         <button class="copybtn" id="copyBtn">複製</button>
         <button class="copybtn" id="shareBtn">分享</button>
       </div>
+      ${roomData.password ? `<p class="helper" id="roomPasswordInfo">密碼：<b class="mono">${esc(roomData.password)}</b>（告訴朋友才進得來）</p>` : ``}
       <p class="helper">把這串代碼傳給朋友，請他們打開同一頁輸入</p>
       <label style="margin-top:6px;">玩家（${players.length}）· 已準備 ${readyCount}/${players.length}</label>
       <ul class="playerlist">
@@ -1380,7 +1586,7 @@ function renderLobby(isHost){
             : (isHost
                 ? `<span class="prow-actions">${scoreSpan}<button class="kickbtn" data-kick="${p.id}">踢除</button></span>`
                 : scoreSpan);
-          return `<li><span class="pname">${p.ready?'✅':'⏳'} ${avatarOf(p)} ${esc(p.name)} ${isMe?'<span class="you">YOU</span>':''} ${p.id===hostId?'<span class="host">HOST</span>':''}</span>${rightSide}</li>`;
+          return `<li><span class="pname">${p.ready?'✅':'⏳'} ${avatarOf(p)} ${esc(p.name)} ${isMe?'<span class="you">YOU</span>':''} ${p.id===hostId?'<span class="host">HOST</span>':''}${offBadge(p)}</span>${rightSide}</li>`;
         }).join("")}
       </ul>
       ${lobbyAvatarPickOpen ? `
@@ -2196,7 +2402,7 @@ function renderEnded(isHost){
         <label>完整排名（扣分由少到多）</label>
         <ul class="playerlist">
           ${playersData.slice().sort((a,b)=>(a.strikes||0)-(b.strikes||0)).map(p=>`
-            <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="strikes">${p.strikes||0}</span></li>
+            <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}${offBadge(p)}</span><span class="strikes">${p.strikes||0}</span></li>
           `).join("")}
         </ul>
       </div>
@@ -2427,7 +2633,7 @@ function renderMLEnded(isHost){
         <label>完整排行（猜中位置數，多到少）</label>
         <ul class="playerlist">
           ${ranked.map(p=>`
-            <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="strikes">${p.mlScore||0} 分</span></li>
+            <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}${offBadge(p)}</span><span class="strikes">${p.mlScore||0} 分</span></li>
           `).join("")}
         </ul>
       </div>
@@ -2897,7 +3103,7 @@ function renderWerewolfDiscuss(isHost){
       <div class="badge purple">💬 討論時間</div>
       <p class="helper" style="margin-top:-4px;">大家open嘴巴討論、指控、辯論吧！</p>
       <ul class="playerlist">
-        ${alive.map(p=>`<li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span></li>`).join("")}
+        ${alive.map(p=>`<li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}${offBadge(p)}</span></li>`).join("")}
       </ul>
     </div>
     ${isHost ? `<button class="btn-primary" id="startVoteBtn">開始投票</button>` : `<p class="helper">等待房主開始投票</p>`}
@@ -2978,7 +3184,7 @@ function renderWerewolfEnded(isHost){
       <label>身分公開</label>
       <ul class="playerlist">
         ${playersData.map(p=>`
-          <li><span class="pname">${p.alive===false?'💀':'🙂'} ${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="cattag">${esc(ROLE_LABEL[roles[p.id]]||'村民')}</span></li>
+          <li><span class="pname">${p.alive===false?'💀':'🙂'} ${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}${offBadge(p)}</span><span class="cattag">${esc(ROLE_LABEL[roles[p.id]]||'村民')}</span></li>
         `).join("")}
       </ul>
     </div>
@@ -3005,7 +3211,7 @@ function renderAvalonNoRole(){
 function avalonN(){ return avalonClampN(Object.keys(roomData.roles||{}).length); }
 function avalonName(id){
   const p = playersData.find(pp=>pp.id===id);
-  return p ? `${avatarOf(p)} ${esc(p.name)}` : "🙂 ?";
+  return p ? `${avatarOf(p)} ${esc(p.name)}${offBadge(p)}` : "🙂 ?";
 }
 // 這局有角色的玩家（遊戲開始後才加入的人不算）。
 function avalonPlayers(){
@@ -3099,7 +3305,7 @@ function renderAvalonTeam(me, isHost){
   const size = avalonTeamSize(n, missionNo);
   const need = avalonFailsNeeded(n, missionNo);
   const leaderId = roomData.leaderId;
-  const leaderHere = avalonPlayers().some(p=>p.id===leaderId);
+  const leaderHere = avalonPlayers().some(p=>p.id===leaderId && (p.id===identity.playerId || isOnline(p, Date.now())));
   const isLeader = leaderId === identity.playerId;
   const key = `team-${missionNo}-${roomData.rejectCount||0}-${leaderId}`;
   if(avalonPickKey!==key){ avalonPickKey = key; avalonPickDraft = []; }
@@ -3110,7 +3316,7 @@ function renderAvalonTeam(me, isHost){
     <div class="card">
       <div class="badge purple">第 ${missionNo} 輪任務</div>
       ${renderAvalonTracker()}
-      <p class="helper" style="margin:0 0 8px; text-align:left;">本輪需要 <b>${size}</b> 人出任務${need===2?'（需要 2 張失敗票才算失敗）':''}。隊長：${leaderHere?avalonName(leaderId):'（已離開）'}</p>
+      <p class="helper" style="margin:0 0 8px; text-align:left;">本輪需要 <b>${size}</b> 人出任務${need===2?'（需要 2 張失敗票才算失敗）':''}。隊長：${leaderHere?avalonName(leaderId):'（已離開或離線）'}</p>
       ${isLeader ? `
         <p class="helper" style="margin:0 0 8px; text-align:left;">你是隊長，選出 ${size} 位隊員（可以選自己）。已選 ${picked.length}/${size}</p>
         <div class="pickgrid">
@@ -3119,7 +3325,7 @@ function renderAvalonTeam(me, isHost){
         <button class="btn-primary" id="proposeBtn" style="margin-top:12px;" ${canSubmit?'':'disabled'}>送出隊伍，開始投票</button>
       ` : `<p class="helper" style="margin-top:10px;">⏳ 等待隊長挑選隊員…</p>`}
     </div>
-    ${(!leaderHere && isHost) ? `<button class="btn-secondary" id="skipLeaderBtn" style="margin-top:10px;">隊長已離開，換下一位隊長</button>` : ``}
+    ${(!leaderHere && isHost) ? `<button class="btn-secondary" id="skipLeaderBtn" style="margin-top:10px;">隊長已離開或離線，換下一位隊長</button>` : ``}
     ${avalonFooterHtml()}
   `;
   if(isLeader){
@@ -3168,6 +3374,8 @@ function renderAvalonVote(me, isHost){
 function renderAvalonVoteResult(isHost){
   const votes = roomData.teamVotes || {};
   const t = avalonTally(votes);
+  // 結算當下的結果存在 teamApproved：之後如果有人（例如剛重新上線的玩家）又補寫了票，也不會改變結果。
+  if(typeof roomData.teamApproved==="boolean") t.approved = roomData.teamApproved;
   const rc = roomData.rejectCount || 0;
   const team = roomData.teamSelection || [];
   const btnLabel = t.approved ? '出發執行任務' : (rc>=5 ? '查看結果' : '換下一位隊長');
@@ -3178,7 +3386,7 @@ function renderAvalonVoteResult(isHost){
       <div class="qtext" style="font-size:22px; margin:6px 0;">${t.approved?'✅ 隊伍通過':'❌ 隊伍被否決'}（👍 ${t.approve} : 👎 ${t.reject}）</div>
       <p class="helper" style="margin:0 0 8px; text-align:left;">提議的隊伍：${team.map(id=>avalonName(id)).join("、")}</p>
       <ul class="playerlist">
-        ${avalonPlayers().map(p=>`<li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="cattag">${votes[p.id]==="approve"?'👍 同意':(votes[p.id]==="reject"?'👎 反對':'—')}</span></li>`).join("")}
+        ${avalonPlayers().map(p=>`<li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}${offBadge(p)}</span><span class="cattag">${votes[p.id]==="approve"?'👍 同意':(votes[p.id]==="reject"?'👎 反對':'—')}</span></li>`).join("")}
       </ul>
       ${(!t.approved && rc>=5) ? `<p class="helper" style="margin-top:10px;">已經連續 5 次組隊被否決！</p>` : ``}
     </div>
@@ -3301,7 +3509,7 @@ function renderAvalonEnded(isHost){
       <label>身分公開</label>
       <ul class="playerlist">
         ${playersData.map(p=>`
-          <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="cattag">${esc(AVALON_ROLE_LABEL[roles[p.id]]||'（旁觀）')}</span></li>
+          <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}${offBadge(p)}</span><span class="cattag">${esc(AVALON_ROLE_LABEL[roles[p.id]]||'（旁觀）')}</span></li>
         `).join("")}
       </ul>
     </div>
@@ -3321,7 +3529,7 @@ function cnTeamTag(team){
 }
 function cnName(id){
   const p = playersData.find(pp=>pp.id===id);
-  return p ? `${avatarOf(p)} ${esc(p.name)}` : "🙂 ?";
+  return p ? `${avatarOf(p)} ${esc(p.name)}${offBadge(p)}` : "🙂 ?";
 }
 
 function renderCnHelpModal(){
@@ -3418,7 +3626,7 @@ function renderCnGame(me, isHost){
   const redLeft = (typeof rd.redLeft==="number") ? rd.redLeft : left.red;
   const blueLeft = (typeof rd.blueLeft==="number") ? rd.blueLeft : left.blue;
   const clue = rd.clue;
-  const spyGone = !!turn && !!sm[turn] && !playersData.some(p=>p.id===sm[turn]);
+  const spyGone = !!turn && !!sm[turn] && !playersData.some(p=>p.id===sm[turn] && (p.id===identity.playerId || isOnline(p, Date.now())));
 
   const roleHtml = myTeam
     ? `<div class="cnrole ${myTeam}">${CN_TEAM_EMOJI[myTeam]} 你是${CN_TEAM_LABEL[myTeam]} · ${isSpy?'指揮官':'猜測者'}</div>${isSpy && !ended ? `<p class="helper" style="margin:6px 0 0; text-align:left;">你看得到所有牌的顏色，別讓隊友偷看你的手機。</p>` : ``}`
@@ -3490,7 +3698,7 @@ function renderCnGame(me, isHost){
       }
     }
     if(isHost){
-      actionHtml += `<button class="btn-ghost" id="cnForceBtn">${spyGone?'指揮官已離開，換一位指揮官':'強制換隊（跳過目前回合）'}</button>`;
+      actionHtml += `<button class="btn-ghost" id="cnForceBtn">${spyGone?'指揮官已離開或離線，換一位指揮官':'強制換隊（跳過目前回合）'}</button>`;
     }
   }
 
@@ -3630,7 +3838,8 @@ function renderJoGame(me, isHost){
   const key = joKeyOf(rd);
   if(joDraftKey!==key){ joDraftKey = key; joHintDraft = ""; joHintError = ""; joGuessDraft = ""; joGuessError = ""; }
   joRenderedKey = phase + "|" + key;
-  const isPresent = id=> playersData.some(p=>p.id===id);
+  const nowMs = Date.now();
+  const isPresent = id=> playersData.some(p=>p.id===id && (p.id===myId || isOnline(p, nowMs)));
   const guesserGone = !!guesserId && !isPresent(guesserId);
   const presentEl = eligible.filter(isPresent);
   const submitted = presentEl.filter(id=> hints[id]!=null);
@@ -3650,7 +3859,7 @@ function renderJoGame(me, isHost){
       <span class="jopill">🃏 已用 ${used}/${total}</span>
       <span class="jopill">第 ${rd.round||1} 輪</span>
     </div>
-    <p class="helper" style="margin:0 0 10px; text-align:left;">猜詞者：${joName(guesserId)}</p>`;
+    <p class="helper" style="margin:0 0 10px; text-align:left;">猜詞者：${joName(guesserId)}${offBadge(playersData.find(p=>p.id===guesserId))}</p>`;
 
   const wordHtml = `<div class="jolabel">神祕詞</div><div class="joword">${esc(word)}</div>`;
   const hintChips = (list, cls)=> list.length ? `<div class="jochips">${list.map(t=>`<span class="jochip ${cls||''}">${esc(t)}</span>`).join("")}</div>` : ``;
@@ -3761,7 +3970,7 @@ function renderJoGame(me, isHost){
 
   let hostHtml = "";
   if(isHost && (phase==="clue" || phase==="guess")){
-    if(guesserGone) hostHtml += `<button class="btn-secondary" id="joReplaceBtn" style="margin-top:4px;">猜詞者已離開，換一位猜詞者（跳過這張牌）</button>`;
+    if(guesserGone) hostHtml += `<button class="btn-secondary" id="joReplaceBtn" style="margin-top:4px;">猜詞者已離開或離線，換一位猜詞者（跳過這張牌）</button>`;
     if(phase==="clue") hostHtml += `<button class="btn-ghost" id="joForceBtn">強制進入猜測</button>`;
   }
 
@@ -3832,10 +4041,38 @@ async function acquireLock(ref, holder, ttlMs){
   }catch(e){ return {acquired:false}; }
 }
 
+// 釋放鎖：只有 holder 相符才刪除鎖文件（鎖已經過期被別人拿走時不會誤刪對方的鎖）。
+async function releaseLock(ref, holder){
+  try{
+    const lockRef = ref.collection("_locks").doc("resolve");
+    await db.runTransaction(async tx=>{
+      const snap = await tx.get(lockRef);
+      const data = snap.exists ? snap.data() : null;
+      if(data && data.holder === holder) tx.delete(lockRef);
+    });
+    return true;
+  }catch(e){ return false; }
+}
+
+// 共用的鎖介面（遊戲程式碼一律透過 sync.js 的 withRoomLock 使用，不直接呼叫）。
+function lockRoom(ref, holder, ttlMs){ return acquireLock(ref, holder, ttlMs); }
+function unlockRoom(ref, holder){ return releaseLock(ref, holder); }
+
+// 欄位層級的原子更新：Firestore 的 update() 原生支援 "a.b.c" 點路徑，只改那一個欄位，不會蓋掉別人同時寫的其他欄位。
+function patchDoc(ref, flat){ return ref.update(flat); }
+// 點路徑更新本身就是原子的，不需要寫完再讀回來確認。
+const VERIFY_FIELD_WRITES = false;
+
+// 房間文件的參照：Firestore 的 update() 本來就是「頂層欄位取代」，不需要包裝。
+function wrapRoomRef(ref){ return ref; }
 async function doCreate(){
   joinError = "";
   const name = homeName.trim();
   if(!name){ joinError = "請先輸入暱稱"; render(); return; }
+  // 房間密碼（選填）：只是 UI 層的小門檻，明文存在房間文件裡、由用戶端比對，
+  // 跟整個 app 其他部分一樣沒有伺服器端驗證，擋不住刻意去讀資料庫的人。
+  const password = (homePassword||"").trim() || null;
+  if(password!==null && !/^[0-9]{4}$/.test(password)){ joinError = "密碼要 4 位數字"; render(); return; }
   const d = await ensureDb();
   if(!d){ joinError = "目前無法連線建立房間，稍後再試"; render(); return; }
   app.innerHTML = `<div class="card" style="text-align:center;color:var(--muted);"><span class="spin"></span>建立房間中…</div>`;
@@ -3862,7 +4099,7 @@ async function doCreate(){
     : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"};
   try{
     await ref.set({
-      gameType, phase:"lobby", round:0, settings,
+      gameType, phase:"lobby", round:0, settings, password,
       currentQuestion:null, currentPrompt:null, roundEndAt:null, revealLog:[], losers:[],
       usedQKeys:[], usedPromptIdx:[],
       currentGuesserId:null, usedGuesserIds:[], usedDrawPromptIdx:[], drawOrder:[], currentDrawerIndex:0, guesserGuess:null,
@@ -3876,9 +4113,10 @@ async function doCreate(){
       joGuess:null, joVerdict:null, joOverridden:false, joLog:[],
       createdAt: Date.now(), lastActivityAt: Date.now()
     });
-    await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, mlScore:0, ready:false });
+    await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), lastSeen: Date.now(), strikes:0, mlScore:0, ready:false });
   }catch(e){ joinError="建立房間失敗，請再試一次"; render(); return; }
   identity = {code, playerId: pid, name};
+  homePassword = "";
   saveIdentity(identity);
   connectRoom();
 }
@@ -3901,13 +4139,31 @@ async function doJoin(){
     deleteRoomBestEffort(ref);
     render(); return;
   }
+  // 舊房間沒有 password 欄位（undefined/null）= 不需要密碼。已加入者的 identity 存在 sessionStorage，
+  // 重新整理走 connectRoom()，不經過這裡，所以不用重填密碼。（UI 層門檻，見 doCreate 註解。）
+  if(rd.password){
+    if(String(homePassword||"").trim() !== String(rd.password)){ joinError = "這個房間需要密碼，或密碼不正確"; render(); return; }
+  }
   const pid = uid();
-  try{ await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, mlScore:0, ready:false }); }
+  try{ await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), lastSeen: Date.now(), strikes:0, mlScore:0, ready:false }); }
   catch(e){ joinError="加入房間失敗，請再試一次"; render(); return; }
   try{ await ref.update({lastActivityAt: Date.now()}); }catch(e){}
   identity = {code, playerId: pid, name};
+  homePassword = "";
   saveIdentity(identity);
   connectRoom();
+}
+
+// 從分享連結（?code=XXXX）進來時，查一次房間有沒有密碼；有的話把游標放到密碼欄。查不到就算了。
+async function probeSharedRoomPassword(){
+  try{
+    const code = homeCode;
+    const d = await ensureDb(); if(!d || identity || homeTab!=='join' || homeCode!==code) return;
+    const snap = await d.doc(`telepathyrooms/${code}`).get();
+    if(!snap.exists || !(snap.data()||{}).password) return;
+    const el = document.getElementById("passwordInput");
+    if(el && el.focus) el.focus();
+  }catch(e){}
 }
 
 // 資料內容沒變就不要重新 render()：避免彈跳視窗（設定/玩法說明）在開著的時候，
@@ -3918,7 +4174,7 @@ function sameData(a,b){
 
 function connectRoom(){
   const d = db;
-  roomRef = d.doc(`telepathyrooms/${identity.code}`);
+  roomRef = wrapRoomRef(d.doc(`telepathyrooms/${identity.code}`));
   playersCol = roomRef.collection("players");
   roomData = null; playersData = [];
   expireCleanupDone = false;
@@ -3935,14 +4191,12 @@ function connectRoom(){
     render();
   }, ()=>{ roomData = {exists:false}; render(); });
   unsubPlayers = playersCol.onSnapshot(qsnap=>{
-    const next = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    if(sameData(next, playersData)) return;
-    playersData = next;
-    render();
+    applyPlayers(qsnap.docs.map(dd=>({id:dd.id, ...dd.data()})));
   }, ()=>{});
   render();
   if(pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(pollRoomOnce, 2000);
+  startPresence();
 }
 
 // 保底機制：即時監聽偶爾會漏更新（尤其手機網路不穩時），
@@ -3958,9 +4212,15 @@ async function pollRoomOnce(){
   if(!playersCol) return;
   try{
     const qsnap = await playersCol.get();
-    const next = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    if(!sameData(next, playersData)){ playersData = next; render(); }
+    applyPlayers(qsnap.docs.map(dd=>({id:dd.id, ...dd.data()})));
   }catch(e){}
+}
+
+// 這一題「在線的玩家」是不是都投了（離線的人不用等，不然會卡到時間結束）。
+function voteRoundComplete(){
+  if(!playersData.length || !identity) return false;
+  const voted = new Set(votesData.map(v=>v.playerId));
+  return onlineIdsOf(playersData, Date.now(), identity.playerId).every(id=> voted.has(id));
 }
 
 function manageVoteSub(phase){
@@ -3970,7 +4230,7 @@ function manageVoteSub(phase){
     unsubVotes = votesCol.where("round","==",roomData.round).onSnapshot(qsnap=>{
       votesData = qsnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
       render();
-      if(votesData.length >= playersData.length && playersData.length>0){
+      if(voteRoundComplete()){
         if(roomData && roomData.gameType==="mostlikely") tryResolveML(); else tryResolve();
       }
     }, ()=>{});
@@ -4013,6 +4273,7 @@ function manageStrokeSub(phase){
 function leaveToHome(){
   if(unsubRoom) unsubRoom(); if(unsubPlayers) unsubPlayers(); if(unsubVotes) unsubVotes(); if(unsubStrokes) unsubStrokes();
   if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  stopPresence();
   if(tickTimer){ clearInterval(tickTimer); tickTimer=null; }
   clearRevealTimers(); revealAnimRound = null; revealStage = 0;
   mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
@@ -4072,59 +4333,59 @@ async function tryResolve(){
   if(!roomData || roomData.phase!=="question") return;
   resolveBusy = true;
   try{
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(!lease.acquired){ resolveBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="question"){ resolveBusy=false; return; }
-    const fd = fresh.data();
-    // 用 Firestore 現場抓一次玩家名單，不要用本地快取的 playersData——
-    // 這裡會有 await，快取可能在等待期間被 onSnapshot 換成「已經扣過分」的新資料，
-    // 如果還拿快取來算「扣分後是不是達標」會整組多算一次分（導致明明還沒到目標分數就結束遊戲）。
-    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
-    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    const allVotedSnap = await votesCol.where("round","==",fd.round).get().catch(()=>({docs:[]}));
-    const roundVotes = allVotedSnap.docs.map(dd=>dd.data());
-    const timeUp = Date.now() >= (fd.roundEndAt||0);
-    const allVoted = roundVotes.length >= freshPlayers.length;
-    if(!timeUp && !allVoted){ resolveBusy=false; return; }
+    // 短租約鎖 + 重新抓房間/玩家（冪等：已經結算過 phase 就不是 question 了）。搶不到鎖就算了，
+    // 別的客戶端正在結算，或之後由計時器 / 房主看門狗再試。
+    await withFreshRoom(async (fd, freshPlayers)=>{
+      if(fd.phase!=="question") return;
+      // 玩家名單用現場抓的，不要用本地快取的 playersData——
+      // 這裡會有 await，快取可能在等待期間被 onSnapshot 換成「已經扣過分」的新資料，
+      // 如果還拿快取來算「扣分後是不是達標」會整組多算一次分（導致明明還沒到目標分數就結束遊戲）。
+      const allVotedSnap = await votesCol.where("round","==",fd.round).get().catch(()=>({docs:[]}));
+      const roundVotes = allVotedSnap.docs.map(dd=>dd.data());
+      const timeUp = Date.now() >= (fd.roundEndAt||0);
+      const voted = new Set(roundVotes.map(v=>v.playerId));
+      // 離線的人不用等：只要在線的人都投了就結算（沒投的人照舊算沒作答）。
+      const allVoted = freshPlayers.length>0 && onlineIdsOf(freshPlayers, Date.now(), identity.playerId).every(id=> voted.has(id));
+      if(!timeUp && !allVoted) return;
 
-    const byOption = {A:[],B:[],C:[],D:[]};
-    const votedIds = new Set();
-    roundVotes.forEach(v=>{ if(byOption[v.choice]){ byOption[v.choice].push(v.playerId); votedIds.add(v.playerId); } });
-    const mode = (fd.settings && fd.settings.mode) || "normal";
-    const struckIds = [];
-    if(mode==="majority"){
-      const counts = LETTERS.map(L=>byOption[L].length).filter(c=>c>0);
-      const maxCount = counts.length ? Math.max(...counts) : 0;
-      const leading = new Set(LETTERS.filter(L=>byOption[L].length===maxCount && maxCount>0));
-      LETTERS.forEach(L=>{ if(byOption[L].length>0 && !leading.has(L)) struckIds.push(...byOption[L]); });
-    } else {
-      LETTERS.forEach(L=>{ if(byOption[L].length===1) struckIds.push(byOption[L][0]); });
-    }
-    const noAnswerIds = freshPlayers.map(p=>p.id).filter(id=>!votedIds.has(id));
-    const allStruck = new Set([...struckIds, ...noAnswerIds]);
-
-    const newStrikesById = new Map();
-    await Promise.all(freshPlayers.map(p=>{
-      if(allStruck.has(p.id)){
-        const ns = (p.strikes||0)+1;
-        newStrikesById.set(p.id, ns);
-        return playersCol.doc(p.id).update({strikes:ns});
+      const byOption = {A:[],B:[],C:[],D:[]};
+      const votedIds = new Set();
+      roundVotes.forEach(v=>{ if(byOption[v.choice]){ byOption[v.choice].push(v.playerId); votedIds.add(v.playerId); } });
+      const mode = (fd.settings && fd.settings.mode) || "normal";
+      const struckIds = [];
+      if(mode==="majority"){
+        const counts = LETTERS.map(L=>byOption[L].length).filter(c=>c>0);
+        const maxCount = counts.length ? Math.max(...counts) : 0;
+        const leading = new Set(LETTERS.filter(L=>byOption[L].length===maxCount && maxCount>0));
+        LETTERS.forEach(L=>{ if(byOption[L].length>0 && !leading.has(L)) struckIds.push(...byOption[L]); });
+      } else {
+        LETTERS.forEach(L=>{ if(byOption[L].length===1) struckIds.push(byOption[L][0]); });
       }
-      return Promise.resolve();
-    }));
+      const noAnswerIds = freshPlayers.map(p=>p.id).filter(id=>!votedIds.has(id));
+      const allStruck = new Set([...struckIds, ...noAnswerIds]);
 
-    const target = (fd.settings && fd.settings.targetStrikes) || 3;
-    const losers = freshPlayers.filter(p=> newStrikesById.has(p.id) && newStrikesById.get(p.id) >= target).map(p=>({id:p.id, name:p.name}));
+      const newStrikesById = new Map();
+      await Promise.all(freshPlayers.map(p=>{
+        if(allStruck.has(p.id)){
+          const ns = (p.strikes||0)+1;
+          newStrikesById.set(p.id, ns);
+          return playersCol.doc(p.id).update({strikes:ns});
+        }
+        return Promise.resolve();
+      }));
 
-    const log = (fd.revealLog||[]).slice();
-    log.push({round: fd.round, q: fd.currentQuestion.q, options: fd.currentQuestion.options, byOption, struckIds, noAnswerIds});
+      const target = (fd.settings && fd.settings.targetStrikes) || 3;
+      const losers = freshPlayers.filter(p=> newStrikesById.has(p.id) && newStrikesById.get(p.id) >= target).map(p=>({id:p.id, name:p.name}));
 
-    if(losers.length>0){
-      await roomRef.update({phase:"ended", losers, revealLog: log, lastActivityAt: Date.now()});
-    } else {
-      await roomRef.update({phase:"reveal", revealLog: log, lastActivityAt: Date.now()});
-    }
+      const log = (fd.revealLog||[]).slice();
+      log.push({round: fd.round, q: fd.currentQuestion.q, options: fd.currentQuestion.options, byOption, struckIds, noAnswerIds});
+
+      if(losers.length>0){
+        await roomRef.update({phase:"ended", losers, revealLog: log, lastActivityAt: Date.now()});
+      } else {
+        await roomRef.update({phase:"reveal", revealLog: log, lastActivityAt: Date.now()});
+      }
+    }, {tries:4});
   }catch(e){}
   resolveBusy = false;
 }
@@ -4177,6 +4438,158 @@ async function doKick(id){
   try{ await playersCol.doc(id).delete(); }catch(e){}
 }
 
+// ---------- 同步：短租約鎖 + 退避重試 / 玩家欄位原子寫入 / 心跳 / 看門狗 ----------
+
+function sleepMs(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+// 在「短租約鎖」裡執行 fn：搶不到就指數退避 + 抖動重試（最多 tries 次）；不管 fn 成功或丟例外，一定釋放鎖。
+// 回傳 {ok:true, value}；搶不到回傳 {ok:false}（呼叫端必須處理，不可以默默吞掉使用者的動作）；fn 丟的例外會原樣往外丟。
+async function withRoomLock(fn, opts){
+  opts = opts || {};
+  const tries = opts.tries || LOCK_TRIES;
+  const ttl = opts.ttl || LOCK_TTL_MS;
+  const ref = roomRef;
+  const me = identity ? identity.playerId : "anon";
+  for(let i=0;i<tries;i++){
+    const holder = me + "#" + Math.random().toString(36).slice(2,8);
+    let lease = null;
+    try{ lease = await lockRoom(ref, holder, ttl); }catch(e){ lease = null; }
+    if(lease && lease.acquired){
+      try{
+        return {ok:true, value: await fn()};
+      } finally {
+        try{ await unlockRoom(ref, holder); }catch(e){}
+      }
+    }
+    if(i<tries-1) await sleepMs(backoffDelay(i));
+  }
+  return {ok:false};
+}
+
+async function freshPlayerList(){
+  const snap = await playersCol.get().catch(()=>({docs:[]}));
+  return snap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+}
+// 鎖 + 重新抓房間與玩家 + 呼叫 fn(fd, players)：所有「結算」類動作都走這條（fn 自己要再確認 phase，保持冪等）。
+async function withFreshRoom(fn, opts){
+  return withRoomLock(async ()=>{
+    const snap = await roomRef.get().catch(()=>null);
+    if(!snap || !snap.exists) return undefined;
+    const players = await freshPlayerList();
+    return fn(snap.data(), players);
+  }, opts);
+}
+
+// 每個人只寫「自己的」欄位（例如 teamVotes.<我的id>），不需要鎖，同時送出也不會互相蓋掉。
+// 寫入失敗（網路）會退避重試；回傳 true 表示確定寫進去了（或房間已經進到下一階段）。
+async function writeOwnField(path, value, expectPhase){
+  for(let i=0;i<4;i++){
+    try{
+      await patchDoc(roomRef, {[path]: value, lastActivityAt: Date.now()});
+      if(!VERIFY_FIELD_WRITES) return true;
+      const snap = await roomRef.get().catch(()=>null);
+      if(!snap || !snap.exists) return false;
+      const d = snap.data();
+      if(expectPhase && d.phase!==expectPhase) return true;   // 已經進到下一階段，不要再往新階段重寫
+      if(deepEq(getPathValue(d, path), value)) return true;
+    }catch(e){}
+    await sleepMs(backoffDelay(i));
+  }
+  return false;
+}
+
+// 小提示（沒送出成功時叫使用者再按一次）。不依賴畫面重繪。
+let toastTimer = null;
+function showToast(msg){
+  try{
+    let el = document.getElementById("syncToast");
+    if(!el){
+      el = document.createElement("div"); el.id = "syncToast"; el.className = "toast";
+      document.body.appendChild(el);
+    }
+    el.textContent = msg; el.style.opacity = "1";
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ try{ el.style.opacity = "0"; }catch(e){} }, 2800);
+  }catch(e){}
+}
+const MSG_RETRY = "沒有送出成功，請再按一次";
+
+// ---------- 在線狀態（心跳）----------
+let hbTimer = null, wdTimer = null, lastHbAt = 0, lastOnlineKey = "", watchdogBusy = false;
+
+function pageVisible(){
+  try{ return !document.visibilityState || document.visibilityState==="visible"; }catch(e){ return true; }
+}
+function sendHeartbeat(force){
+  if(!identity || !playersCol) return;
+  if(!pageVisible()) return;
+  const now = Date.now();
+  if(now - lastHbAt < 2000) return;   // 事件（focus / visibilitychange / online）可能一起觸發，擋掉重複寫入
+  lastHbAt = now;
+  try{ playersCol.doc(identity.playerId).update({lastSeen: now}).catch(()=>{}); }catch(e){}
+}
+function onlineKey(){
+  const now = Date.now();
+  return playersData.filter(p=> p.id===(identity&&identity.playerId) || isOnline(p, now)).map(p=>p.id).join(",");
+}
+function currentHostId(){
+  return pickHostId(playersData, Date.now(), identity ? identity.playerId : null);
+}
+function isHostNow(players){
+  return !!identity && pickHostId(players||playersData, Date.now(), identity.playerId)===identity.playerId;
+}
+// 在線玩家的 id（沒有任何人在線時退回全部）：挑下一位猜謎者/基準者/隊長時不要挑到離線的人。
+function presentIds(){
+  const o = onlineIdsOf(playersData, Date.now(), identity && identity.playerId);
+  return o.length ? o : playersData.map(p=>p.id);
+}
+function offBadge(p){ return offBadgeHtml(p, Date.now(), identity && identity.playerId); }
+
+// 玩家名單更新：只有 lastSeen 變了而其他資料沒變時不重畫；但「誰在線」的集合變了要重畫。
+function applyPlayers(next){
+  const changed = !sameData(stripSeen(next), stripSeen(playersData));
+  playersData = next;
+  const k = onlineKey();
+  const kc = k !== lastOnlineKey;
+  lastOnlineKey = k;
+  if(changed || kc) render();
+}
+
+function startPresence(){
+  stopPresence();
+  lastHbAt = 0; lastOnlineKey = "";
+  sendHeartbeat(true);
+  hbTimer = setInterval(()=> sendHeartbeat(false), HEARTBEAT_MS);
+  wdTimer = setInterval(watchdogTick, WATCHDOG_MS);
+}
+function stopPresence(){
+  if(hbTimer){ clearInterval(hbTimer); hbTimer = null; }
+  if(wdTimer){ clearInterval(wdTimer); wdTimer = null; }
+}
+
+// ---------- 看門狗：由「目前的房主」每 ~5 秒檢查一次，離線玩家造成的卡關自動往前推 ----------
+async function watchdogTick(){
+  if(!identity || !roomRef || !roomData || !roomData.exists) return;
+  const k = onlineKey();
+  if(k !== lastOnlineKey){ lastOnlineKey = k; render(); }
+  if(watchdogBusy || !pageVisible()) return;
+  const phase = roomData.phase;
+  if(!phase || phase==="lobby" || phase==="ended") return;
+  if(!isHostNow()) return;
+  watchdogBusy = true;
+  try{ await runWatchdog(); }catch(e){}
+  watchdogBusy = false;
+}
+async function runWatchdog(){
+  const gt = (roomData && roomData.gameType) || "telepathy";
+  if(gt==="avalon") return avalonWatchdog();
+  if(gt==="codenames") return cnWatchdog();
+  if(gt==="justone") return joWatchdog();
+  if(gt==="werewolf") return wwWatchdog();
+  if(gt==="draw") return drawWatchdog();
+  // 誰最可能 / 心電感應：在線的人都投完、或時間到，就由房主補一次結算（平常是最後一位投票者自己觸發）
+  if(voteRoundComplete() || remainingSeconds()<=0) return gt==="mostlikely" ? tryResolveML() : tryResolve();
+}
 // ---------- 接力畫猜：資料 / 動作 ----------
 
 async function clearAllStrokes(){
@@ -4187,14 +4600,22 @@ async function clearAllStrokes(){
   }catch(e){}
 }
 
+// 畫畫順序：依加入順序、排除猜謎者與離線的人（全員離線時退回全部，避免空名單）。
+function drawOrderFor(players, guesserId){
+  const now = Date.now(), me = identity && identity.playerId;
+  const ord = joinOrder(players).filter(p=>p.id!==guesserId);
+  const on = ord.filter(p=> p.id===me || isOnline(p, now));
+  return (on.length ? on : ord).map(p=>p.id);
+}
+
 async function doStartDraw(){
   const players = playersData;
   if(players.length<2) return;
   if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
   const settings = roomData.settings || {turnSeconds:12, totalRounds:6};
-  const {id: guesserId} = pickMLBase(players.map(p=>p.id), []);
+  const {id: guesserId} = pickMLBase(presentIds(), []);
   const {key, text, subject, place, action} = pickDrawPrompt([]);
-  const drawOrder = players.filter(p=>p.id!==guesserId).slice().sort((a,b)=>a.joinedAt-b.joinedAt).map(p=>p.id);
+  const drawOrder = drawOrderFor(players, guesserId);
   startError = "";
   try{
     await clearAllStrokes();
@@ -4207,33 +4628,62 @@ async function doStartDraw(){
   }catch(e){}
 }
 
+// 接力畫猜的「下一步」判斷（純函式）：畫畫階段時間到、或目前輪到的畫家離線 → 換下一位（或進猜謎）；
+// 猜謎階段猜謎者離線 → 直接公布答案（沒有輸入答案）。其他情況回傳 null。
+function drawPlan(fd, players, now, selfId){
+  if(!fd) return null;
+  const on = new Set(onlineIdsOf(players, now, selfId));
+  const present = new Set((players||[]).map(p=>p.id));
+  if(fd.phase==="drawing"){
+    const drawerId = (fd.drawOrder||[])[fd.currentDrawerIndex||0];
+    const timeUp = now >= (fd.roundEndAt||0);
+    const gone = !!drawerId && (!present.has(drawerId) || !on.has(drawerId));
+    if(timeUp || gone) return {kind:"advance", reason: timeUp ? "time" : "offline"};
+    return null;
+  }
+  if(fd.phase==="guessing"){
+    const g = fd.currentGuesserId;
+    if(g && (!present.has(g) || !on.has(g))) return {kind:"reveal"};
+  }
+  return null;
+}
+
 async function tryAdvanceDraw(){
   if(resolveBusy) return;
   if(!roomData || roomData.phase!=="drawing") return;
   resolveBusy = true;
   try{
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(!lease.acquired){ resolveBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="drawing"){ resolveBusy=false; return; }
-    const fd = fresh.data();
-    const timeUp = Date.now() >= (fd.roundEndAt||0);
-    if(!timeUp){ resolveBusy=false; return; }
-    const drawOrder = fd.drawOrder||[];
-    const nextIndex = (fd.currentDrawerIndex||0)+1;
-    const settings = fd.settings || {turnSeconds:12, totalRounds:6};
-    if(nextIndex >= drawOrder.length){
-      await roomRef.update({phase:"guessing", lastActivityAt: Date.now()});
-    } else {
-      await roomRef.update({currentDrawerIndex: nextIndex, roundEndAt: Date.now()+settings.turnSeconds*1000, lastActivityAt: Date.now()});
-    }
+    await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="drawing") return;
+      const plan = drawPlan(fd, players, Date.now(), identity.playerId);
+      if(!plan || plan.kind!=="advance") return;
+      const drawOrder = fd.drawOrder||[];
+      const nextIndex = (fd.currentDrawerIndex||0)+1;
+      const settings = fd.settings || {turnSeconds:12, totalRounds:6};
+      if(nextIndex >= drawOrder.length){
+        await roomRef.update({phase:"guessing", lastActivityAt: Date.now()});
+      } else {
+        await roomRef.update({currentDrawerIndex: nextIndex, roundEndAt: Date.now()+settings.turnSeconds*1000, lastActivityAt: Date.now()});
+      }
+    }, {tries:4});
   }catch(e){}
   resolveBusy = false;
 }
 
+// 房主端看門狗：畫家離線就跳過他的回合、猜謎者離線就直接公布答案。
+async function drawWatchdog(){
+  if(!drawPlan(roomData, playersData, Date.now(), identity.playerId)) return;
+  if(roomData.phase==="drawing") return tryAdvanceDraw();
+  if(roomData.phase==="guessing") return revealDrawAnswer(null);
+}
+
 async function revealDrawAnswer(guess){
   try{
-    await roomRef.update({phase:"reveal", guesserGuess: (guess && guess.trim()) ? guess.trim() : null, lastActivityAt: Date.now()});
+    const r = await withFreshRoom(async (fd)=>{
+      if(fd.phase!=="guessing") return;   // 已經公布過了（猜謎者和房主同時按）
+      await roomRef.update({phase:"reveal", guesserGuess: (guess && guess.trim()) ? guess.trim() : null, lastActivityAt: Date.now()});
+    }, {tries:5});
+    if(!r.ok) showToast(MSG_RETRY);
   }catch(e){}
   drawGuessInput = "";
 }
@@ -4245,11 +4695,11 @@ async function submitDrawGuess(){
 async function doNextDraw(){
   const settings = roomData.settings || {turnSeconds:12, totalRounds:6};
   const nextRound = (roomData.round||1)+1;
-  const {id: guesserId, resetUsed: gReset} = pickMLBase(playersData.map(p=>p.id), roomData.usedGuesserIds);
+  const {id: guesserId, resetUsed: gReset} = pickMLBase(presentIds(), roomData.usedGuesserIds);
   const {key, text, subject, place, action, resetUsed: pReset} = pickDrawPrompt(roomData.usedDrawPromptIdx);
   const usedGuesserIds = gReset ? [guesserId] : [...(roomData.usedGuesserIds||[]), guesserId];
   const usedDrawPromptIdx = pReset ? [key] : [...(roomData.usedDrawPromptIdx||[]), key];
-  const drawOrder = playersData.filter(p=>p.id!==guesserId).slice().sort((a,b)=>a.joinedAt-b.joinedAt).map(p=>p.id);
+  const drawOrder = drawOrderFor(playersData, guesserId);
   try{
     await clearAllStrokes();
     await roomRef.update({
@@ -4284,7 +4734,7 @@ async function doStartML(){
   if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
   const settings = roomData.settings || {duration:25, totalRounds:8};
   const {idx} = pickMLPrompt([]);
-  const {id: baseId} = pickMLBase(players.map(p=>p.id), []);
+  const {id: baseId} = pickMLBase(presentIds(), []);
   startError = "";
   try{
     await clearAllVotes();
@@ -4316,46 +4766,44 @@ async function tryResolveML(){
   if(!roomData || roomData.phase!=="question") return;
   resolveBusy = true;
   try{
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(!lease.acquired){ resolveBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="question"){ resolveBusy=false; return; }
-    const fd = fresh.data();
-    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
-    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    const allVotedSnap = await votesCol.where("round","==",fd.round).get().catch(()=>({docs:[]}));
-    const roundVotes = allVotedSnap.docs.map(dd=>dd.data());
-    const timeUp = Date.now() >= (fd.roundEndAt||0);
-    const allVoted = roundVotes.length >= freshPlayers.length;
-    if(!timeUp && !allVoted){ resolveBusy=false; return; }
+    await withFreshRoom(async (fd, freshPlayers)=>{
+      if(fd.phase!=="question") return;
+      const allVotedSnap = await votesCol.where("round","==",fd.round).get().catch(()=>({docs:[]}));
+      const roundVotes = allVotedSnap.docs.map(dd=>dd.data());
+      const timeUp = Date.now() >= (fd.roundEndAt||0);
+      const voted = new Set(roundVotes.map(v=>v.playerId));
+      // 離線的人不用等：在線的人都送出排序就結算。
+      const allVoted = freshPlayers.length>0 && onlineIdsOf(freshPlayers, Date.now(), identity.playerId).every(id=> voted.has(id));
+      if(!timeUp && !allVoted) return;
 
-    // 用基準者自己送出的排序當這一題的標準答案；基準者沒送出就整題不計分。
-    const baseVote = roundVotes.find(v=>v.playerId===fd.currentBaseId);
-    const baseRanking = baseVote ? baseVote.ranking : null;
-    const gainedById = {};
-    freshPlayers.forEach(p=>{ gainedById[p.id]=0; });
-    if(baseRanking){
-      roundVotes.forEach(v=>{
-        if(v.playerId===fd.currentBaseId) return; // 基準者這輪不跟自己比對、不計分
-        let matches = 0;
-        (v.ranking||[]).forEach((id,i)=>{ if(baseRanking[i]===id) matches++; });
-        gainedById[v.playerId] = matches;
+      // 用基準者自己送出的排序當這一題的標準答案；基準者沒送出就整題不計分。
+      const baseVote = roundVotes.find(v=>v.playerId===fd.currentBaseId);
+      const baseRanking = baseVote ? baseVote.ranking : null;
+      const gainedById = {};
+      freshPlayers.forEach(p=>{ gainedById[p.id]=0; });
+      if(baseRanking){
+        roundVotes.forEach(v=>{
+          if(v.playerId===fd.currentBaseId) return; // 基準者這輪不跟自己比對、不計分
+          let matches = 0;
+          (v.ranking||[]).forEach((id,i)=>{ if(baseRanking[i]===id) matches++; });
+          gainedById[v.playerId] = matches;
+        });
+        await Promise.all(freshPlayers.map(p=>{
+          const gained = gainedById[p.id]||0;
+          if(gained>0) return playersCol.doc(p.id).update({mlScore:(p.mlScore||0)+gained});
+          return Promise.resolve();
+        }));
+      }
+
+      const log = (fd.revealLog||[]).slice();
+      log.push({
+        round: fd.round, prompt: fd.currentPrompt, baseId: fd.currentBaseId, baseRanking,
+        votes: roundVotes.map(v=>({playerId:v.playerId, ranking:v.ranking})), gainedById
       });
-      await Promise.all(freshPlayers.map(p=>{
-        const gained = gainedById[p.id]||0;
-        if(gained>0) return playersCol.doc(p.id).update({mlScore:(p.mlScore||0)+gained});
-        return Promise.resolve();
-      }));
-    }
 
-    const log = (fd.revealLog||[]).slice();
-    log.push({
-      round: fd.round, prompt: fd.currentPrompt, baseId: fd.currentBaseId, baseRanking,
-      votes: roundVotes.map(v=>({playerId:v.playerId, ranking:v.ranking})), gainedById
-    });
-
-    // 一律先進 reveal 讓大家看這輪結果；是不是最後一題、要不要看總結，交給房主在 reveal 畫面按按鈕決定。
-    await roomRef.update({phase:"reveal", revealLog: log, lastActivityAt: Date.now()});
+      // 一律先進 reveal 讓大家看這輪結果；是不是最後一題、要不要看總結，交給房主在 reveal 畫面按按鈕決定。
+      await roomRef.update({phase:"reveal", revealLog: log, lastActivityAt: Date.now()});
+    }, {tries:4});
   }catch(e){}
   resolveBusy = false;
 }
@@ -4363,7 +4811,7 @@ async function tryResolveML(){
 async function doNextML(){
   const settings = roomData.settings || {duration:25, totalRounds:8};
   const {idx, resetUsed} = pickMLPrompt(roomData.usedPromptIdx);
-  const {id: baseId, resetUsed: baseReset} = pickMLBase(playersData.map(p=>p.id), roomData.usedBaseIds);
+  const {id: baseId, resetUsed: baseReset} = pickMLBase(presentIds(), roomData.usedBaseIds);
   const nextRound = (roomData.round||1)+1;
   const usedPromptIdx = resetUsed ? [idx] : [...(roomData.usedPromptIdx||[]), idx];
   const usedBaseIds = baseReset ? [baseId] : [...(roomData.usedBaseIds||[]), baseId];
@@ -4409,123 +4857,107 @@ async function doStartWerewolf(){
   }catch(e){}
 }
 
-async function doGuardPick(targetId){
+// 夜晚的每個動作都在短租約鎖裡「重新抓房間、確認還在對的步驟」才寫入（冪等），
+// 這樣房主端看門狗跳過離線玩家的步驟時，不會和剛好回來的玩家互相蓋掉。
+async function wwNightAct(step, myRole, fn){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const settings = roomData.settings || {};
-    const roles = roomData.roles || {};
-    const nStep = nextNightStep("guard", settings.roles, roles, playersData);
-    if(nStep){
-      await roomRef.update({guardTarget: targetId, nightStep: nStep, lastActivityAt: Date.now()});
-    } else {
-      await roomRef.update({guardTarget: targetId, lastActivityAt: Date.now()});
-      await resolveNightDeaths();
-    }
-  }catch(e){}
+    const r = await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="night" || fd.nightStep!==step) return;
+      if((fd.roles||{})[identity.playerId]!==myRole) return;
+      await fn(fd, players);
+    }, {tries:6});
+    if(!r.ok) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
 }
+// 這個步驟做完：有下一步就換步驟，沒有就直接結算死亡（呼叫時已經在鎖裡）。
+async function wwFinishStep(step, fd, players, patch){
+  const nStep = nextNightStep(step, (fd.settings||{}).roles, fd.roles||{}, players);
+  patch.lastActivityAt = Date.now();
+  if(nStep) patch.nightStep = nStep;
+  await roomRef.update(patch);
+  if(!nStep) await wwResolveNightDeathsInner();
+}
 
-// 狼人投票是鎖保護的合併寫入：每隻狼投完都會檢查「活著的狼是不是都投了」，
-// 投完才計算最多票的目標（平票時採用「在 playersData 裡加入順序最早的那隻狼投的目標」當決勝）。
+async function doGuardPick(targetId){
+  await wwNightAct("guard", "guard", (fd, players)=> wwFinishStep("guard", fd, players, {guardTarget: targetId}));
+}
+
+// 狼人投票：每隻狼只寫自己的 wolfVotes.<id>（不需要鎖）；寫完由 resolveWolfVotes 拿短租約鎖結算
+// （在線的活狼都投了才算出最多票的目標；平票時採用「加入順序最早的那隻狼投的目標」當決勝）。
 async function doWolfVote(targetId){
   if(voteBusy) return;
   voteBusy = true;
+  let wrote = false;
   try{
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(!lease.acquired){ voteBusy=false; return; }
     const fresh = await roomRef.get().catch(()=>null);
     if(!fresh || !fresh.exists || fresh.data().phase!=="night" || fresh.data().nightStep!=="wolf"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const wolfVotes = Object.assign({}, fd.wolfVotes||{}, {[identity.playerId]: targetId});
-    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
-    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    const roles = fd.roles || {};
-    const aliveWolves = freshPlayers.filter(p=>p.alive!==false && roles[p.id]==="wolf");
-    const allVoted = aliveWolves.every(w=> wolfVotes[w.id]!=null);
-    if(!allVoted){
-      await roomRef.update({wolfVotes, lastActivityAt: Date.now()});
-      voteBusy = false;
-      return;
-    }
-    const orderedWolves = aliveWolves.slice().sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
-    const counts = {};
-    orderedWolves.forEach(w=>{ const t = wolfVotes[w.id]; counts[t] = (counts[t]||0)+1; });
-    let bestTarget = null, bestCount = -1;
-    orderedWolves.forEach(w=>{
-      const t = wolfVotes[w.id];
-      if(counts[t] > bestCount){ bestCount = counts[t]; bestTarget = t; }
-    });
-    const settings = fd.settings || {};
-    const nStep = nextNightStep("wolf", settings.roles, roles, freshPlayers);
-    const patch = {wolfVotes, wolfTarget: bestTarget, lastActivityAt: Date.now()};
-    if(nStep){
-      patch.nightStep = nStep;
-      await roomRef.update(patch);
-    } else {
-      await roomRef.update(patch);
-      await resolveNightDeaths();
-    }
-  }catch(e){}
+    wrote = await writeOwnField("wolfVotes."+identity.playerId, targetId, "night");
+    if(!wrote) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
+  if(wrote) await resolveWolfVotes();
+}
+async function wwResolveWolfInner(fd, players){
+  const roles = fd.roles || {};
+  const wolfVotes = fd.wolfVotes || {};
+  const voters = joinOrder(players.filter(p=>p.alive!==false && roles[p.id]==="wolf")).filter(w=> wolfVotes[w.id]!=null);
+  const counts = {};
+  voters.forEach(w=>{ const t = wolfVotes[w.id]; counts[t] = (counts[t]||0)+1; });
+  let bestTarget = null, bestCount = -1;
+  voters.forEach(w=>{
+    const t = wolfVotes[w.id];
+    if(counts[t] > bestCount){ bestCount = counts[t]; bestTarget = t; }
+  });
+  await wwFinishStep("wolf", fd, players, {wolfTarget: bestTarget});
+}
+async function resolveWolfVotes(){
+  try{
+    await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="night" || fd.nightStep!=="wolf") return;
+      const plan = wwPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="resolveWolf") await wwResolveWolfInner(fd, players);
+    }, {tries:6});
+  }catch(e){}
 }
 
 async function doSeerCheck(targetId){
-  if(voteBusy) return;
-  voteBusy = true;
-  try{
-    const roles = roomData.roles || {};
-    const settings = roomData.settings || {};
-    const nStep = nextNightStep("seer", settings.roles, roles, playersData);
-    const patch = {seerTarget: targetId, seerResult: {target: targetId, isWolf: roles[targetId]==="wolf"}, lastActivityAt: Date.now()};
-    if(nStep){
-      patch.nightStep = nStep;
-      await roomRef.update(patch);
-    } else {
-      await roomRef.update(patch);
-      await resolveNightDeaths();
-    }
-  }catch(e){}
-  voteBusy = false;
+  await wwNightAct("seer", "seer", (fd, players)=>{
+    const roles = fd.roles || {};
+    return wwFinishStep("seer", fd, players, {seerTarget: targetId, seerResult: {target: targetId, isWolf: roles[targetId]==="wolf"}});
+  });
 }
 
 // 女巫永遠是夜晚行動順序的最後一步，所以做完動作之後一定直接進結算，不用再算下一步。
 async function doWitchAct(action, targetId){
-  if(voteBusy) return;
-  voteBusy = true;
-  try{
+  await wwNightAct("witch", "witch", async (fd)=>{
     const patch = {witchAction: action, lastActivityAt: Date.now()};
     if(action==="save") patch.witchSaveUsed = true;
     if(action==="poison"){ patch.witchPoisonTarget = targetId; patch.witchPoisonUsed = true; }
     await roomRef.update(patch);
-    await resolveNightDeaths();
-  }catch(e){}
-  voteBusy = false;
+    await wwResolveNightDeathsInner();
+  });
 }
 
 // 夜晚行動全部做完後結算死亡名單：醫生守到的人不會死、女巫救的人不會死，剩下才是真的死掉的人。
-async function resolveNightDeaths(){
-  if(resolveBusy) return;
-  resolveBusy = true;
-  try{
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(!lease.acquired){ resolveBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="night"){ resolveBusy=false; return; }
-    const fd = fresh.data();
-    const guardTarget = fd.guardTarget, wolfTarget = fd.wolfTarget;
-    const survivedByGuard = guardTarget!=null && guardTarget===wolfTarget;
-    const survivedByWitch = fd.witchAction==="save";
-    const wolfKilled = (wolfTarget && !survivedByGuard && !survivedByWitch) ? wolfTarget : null;
-    const poisonKilled = fd.witchAction==="poison" ? fd.witchPoisonTarget : null;
-    const deathsSet = new Set();
-    if(wolfKilled) deathsSet.add(wolfKilled);
-    if(poisonKilled) deathsSet.add(poisonKilled);
-    const nightDeaths = Array.from(deathsSet);
-    await Promise.all(nightDeaths.map(id=> playersCol.doc(id).update({alive:false})));
-    await finalizeDeaths(nightDeaths, "daydeaths");
-  }catch(e){}
-  resolveBusy = false;
+// （Inner 版本：呼叫時必須已經拿著鎖。）
+async function wwResolveNightDeathsInner(){
+  const fresh = await roomRef.get().catch(()=>null);
+  if(!fresh || !fresh.exists || fresh.data().phase!=="night") return;
+  const fd = fresh.data();
+  const guardTarget = fd.guardTarget, wolfTarget = fd.wolfTarget;
+  const survivedByGuard = guardTarget!=null && guardTarget===wolfTarget;
+  const survivedByWitch = fd.witchAction==="save";
+  const wolfKilled = (wolfTarget && !survivedByGuard && !survivedByWitch) ? wolfTarget : null;
+  const poisonKilled = fd.witchAction==="poison" ? fd.witchPoisonTarget : null;
+  const deathsSet = new Set();
+  if(wolfKilled) deathsSet.add(wolfKilled);
+  if(poisonKilled) deathsSet.add(poisonKilled);
+  const nightDeaths = Array.from(deathsSet);
+  await Promise.all(nightDeaths.map(id=> playersCol.doc(id).update({alive:false})));
+  await finalizeDeaths(nightDeaths, "daydeaths");
 }
 
 // 淘汰名單裡如果有還沒開過槍的獵人，先讓獵人補一槍再繼續；沒有獵人就直接檢查有沒有人獲勝。
@@ -4572,26 +5004,31 @@ async function checkWinAndAdvance(nextPhase, newDeathIdsToAppend){
   }catch(e){}
 }
 
+// 獵人開槍（targetId=null 代表不開槍；獵人離線時看門狗也會用「不開槍」往前推）。
+async function wwHunterInner(fd, targetId){
+  let deaths = [];
+  if(targetId){
+    await playersCol.doc(targetId).update({alive:false});
+    deaths = [targetId];
+  }
+  const nightDeaths = [...(fd.nightDeaths||[]), ...deaths];
+  const hunterQueue = (fd.hunterQueue||[]).slice(1);
+  await roomRef.update({nightDeaths, hunterQueue, lastActivityAt: Date.now()});
+  if(hunterQueue.length===0){
+    await checkWinAndAdvance(fd.hunterNextPhase, []);
+  }
+}
 async function doHunterShoot(targetId){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="hunter"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    if((fd.hunterQueue||[])[0] !== identity.playerId){ voteBusy=false; return; }
-    let deaths = [];
-    if(targetId){
-      await playersCol.doc(targetId).update({alive:false});
-      deaths = [targetId];
-    }
-    const nightDeaths = [...(fd.nightDeaths||[]), ...deaths];
-    const hunterQueue = (fd.hunterQueue||[]).slice(1);
-    await roomRef.update({nightDeaths, hunterQueue, lastActivityAt: Date.now()});
-    if(hunterQueue.length===0){
-      await checkWinAndAdvance(fd.hunterNextPhase, []);
-    }
-  }catch(e){}
+    const r = await withFreshRoom(async (fd)=>{
+      if(fd.phase!=="hunter") return;
+      if((fd.hunterQueue||[])[0] !== identity.playerId) return;
+      await wwHunterInner(fd, targetId);
+    }, {tries:6});
+    if(!r.ok) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
 }
 
@@ -4623,28 +5060,36 @@ async function resolveVoteWith(voteTally, alivePlayers){
   await finalizeDeaths(deaths, "voteresult");
 }
 
+// 投票：每個人只寫自己的 voteTally.<id>（不需要鎖）；寫完由 resolveVotes 拿短租約鎖結算。
 async function doVoteCast(targetIdOrNull){
   if(voteBusy) return;
   voteBusy = true;
+  let wrote = false;
   try{
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(!lease.acquired){ voteBusy=false; return; }
     const fresh = await roomRef.get().catch(()=>null);
     if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const voteTally = Object.assign({}, fd.voteTally||{}, {[identity.playerId]: targetIdOrNull==null ? "abstain" : targetIdOrNull});
-    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
-    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    const alive = freshPlayers.filter(p=>p.alive!==false);
-    const allVoted = alive.every(p=> voteTally[p.id]!=null);
-    if(!allVoted){
-      await roomRef.update({voteTally, lastActivityAt: Date.now()});
-      voteBusy = false;
-      return;
-    }
-    await resolveVoteWith(voteTally, alive);
-  }catch(e){}
+    wrote = await writeOwnField("voteTally."+identity.playerId, targetIdOrNull==null ? "abstain" : targetIdOrNull, "vote");
+    if(!wrote) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
+  if(wrote) await resolveVotes();
+}
+// 沒投的人（離線或強制結束）當棄票。
+async function wwResolveVoteInner(fd, players){
+  const roles = fd.roles || {};
+  const alive = players.filter(p=>p.alive!==false);
+  const voteTally = Object.assign({}, fd.voteTally||{});
+  alive.forEach(p=>{ if(voteTally[p.id]==null) voteTally[p.id] = "abstain"; });
+  await resolveVoteWith(voteTally, alive);
+}
+async function resolveVotes(){
+  try{
+    await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="vote") return;
+      const plan = wwPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="resolveVote") await wwResolveVoteInner(fd, players);
+    }, {tries:6});
+  }catch(e){}
 }
 
 // 房主的「強制結束投票」：沒投的人當棄票處理，直接進結算，不用等所有人都投完。
@@ -4652,19 +5097,29 @@ async function doForceEndVote(){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(!lease.acquired){ voteBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
-    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
-    const alive = freshPlayers.filter(p=>p.alive!==false);
-    const voteTally = Object.assign({}, fd.voteTally||{});
-    alive.forEach(p=>{ if(voteTally[p.id]==null) voteTally[p.id] = "abstain"; });
-    await resolveVoteWith(voteTally, alive);
-  }catch(e){}
+    const r = await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="vote") return;
+      await wwResolveVoteInner(fd, players);
+    }, {tries:6});
+    if(!r.ok) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
+}
+
+// 房主端看門狗：離線的醫生/預言家/女巫步驟自動跳過、獵人離線不開槍、在線的人都投完卻沒人結算就補結算。
+async function wwWatchdog(){
+  if(!wwPlan(roomData, playersData, Date.now(), identity.playerId)) return;
+  await withFreshRoom(async (fd, players)=>{
+    const plan = wwPlan(fd, players, Date.now(), identity.playerId);
+    if(!plan) return;
+    if(plan.kind==="resolveWolf") await wwResolveWolfInner(fd, players);
+    else if(plan.kind==="skipStep"){
+      if(plan.step==="witch"){ await roomRef.update({witchAction:"pass", lastActivityAt: Date.now()}); await wwResolveNightDeathsInner(); }
+      else await wwFinishStep(plan.step, fd, players, {});
+    }
+    else if(plan.kind==="hunterSkip") await wwHunterInner(fd, null);
+    else if(plan.kind==="resolveVote") await wwResolveVoteInner(fd, players);
+  }, {tries:4});
 }
 
 async function doNextNight(){
@@ -4697,19 +5152,17 @@ async function doRematchWerewolf(){
 
 // ---------- 阿瓦隆：資料 / 動作 ----------
 
-// 租約沒搶到就稍等再試幾次（租約有效 4 秒、不會主動釋放），多人同時按下時比較不會有人的選擇被吃掉。
-async function avalonLease(){
-  for(let i=0;i<5;i++){
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(lease && lease.acquired) return {acquired:true};
-    await new Promise(r=>setTimeout(r, 1000));
-  }
-  return {acquired:false};
-}
-// 只算這局有被分配角色的玩家（遊戲開始後才加入的人不算，不然會卡住等他投票）。
+// 投票 / 出任務牌 / 確認身分：每個人只寫「自己的」欄位（teamVotes.<id> 等），不需要鎖，同時送出不會互相蓋掉；
+// 只有「結算」會拿短租約鎖，重新抓資料、確認階段後才寫入（冪等）。
 async function avalonFreshPlayers(roles){
   const snap = await playersCol.get().catch(()=>({docs:[]}));
   return snap.docs.map(dd=>({id:dd.id, ...dd.data()})).filter(p=>!roles || roles[p.id]).sort((a,b)=>a.joinedAt-b.joinedAt);
+}
+// 下一位隊長（跳過離線的人）。
+function avalonLeaderAfter(fd, players){
+  const rolled = avalonRolled(fd, players);
+  const on = new Set(onlineIdsOf(rolled, Date.now(), identity.playerId));
+  return avalonNextOnlineLeader(rolled.map(p=>p.id), fd.leaderId, on);
 }
 
 async function doStartAvalon(){
@@ -4737,9 +5190,8 @@ async function doAvalonAck(){
   try{
     const fresh = await roomRef.get().catch(()=>null);
     if(!fresh || !fresh.exists || fresh.data().phase!=="reveal"){ voteBusy=false; return; }
-    const acks = Object.assign({}, fresh.data().acks||{}, {[identity.playerId]: true});
-    await roomRef.update({acks, lastActivityAt: Date.now()});
-  }catch(e){}
+    if(!(await writeOwnField("acks."+identity.playerId, true, "reveal"))) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
 }
 
@@ -4751,16 +5203,13 @@ async function doAvalonBegin(){
   }catch(e){}
 }
 
-// 隊長離開後沒人能組隊，房主可以把隊長換給下一位。
+// 隊長離開或離線後沒人能組隊，房主可以把隊長換給下一位在線的人（看門狗也會自動做同一件事）。
 async function doAvalonSkipLeader(){
   try{
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="team") return;
-    const players = await avalonFreshPlayers(fresh.data().roles||{});
-    const ids = players.map(p=>p.id);
-    const cur = fresh.data().leaderId;
-    if(ids.includes(cur)) return;
-    await roomRef.update({leaderId: avalonNextLeader(ids, cur), lastActivityAt: Date.now()});
+    await withFreshRoom(async (fd, players)=>{
+      const plan = avalonPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="leader") await roomRef.update({leaderId: plan.leaderId, lastActivityAt: Date.now()});
+    }, {tries:5});
   }catch(e){}
 }
 
@@ -4786,39 +5235,33 @@ async function doProposeTeam(){
 async function doTeamVote(choice){
   if(voteBusy) return;
   voteBusy = true;
+  let wrote = false;
   try{
-    const lease = await avalonLease();
-    if(!lease.acquired){ voteBusy=false; return; }
     const fresh = await roomRef.get().catch(()=>null);
     if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    if((fd.teamVotes||{})[identity.playerId]!=null){ voteBusy=false; return; }
-    const teamVotes = Object.assign({}, fd.teamVotes||{}, {[identity.playerId]: choice==="approve" ? "approve" : "reject"});
-    const players = await avalonFreshPlayers(fd.roles||{});
-    const allVoted = players.every(p=> teamVotes[p.id]!=null);
-    await roomRef.update({teamVotes, lastActivityAt: Date.now()});
-    if(allVoted) await resolveTeamVote();
-  }catch(e){}
+    if((fresh.data().teamVotes||{})[identity.playerId]!=null){ voteBusy=false; return; }
+    wrote = await writeOwnField("teamVotes."+identity.playerId, choice==="approve" ? "approve" : "reject", "vote");
+    if(!wrote) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
+  if(wrote) await resolveTeamVote();
 }
 
-// 全員投完後結算：同意票嚴格多於反對票才通過（平票否決）。被否決時連續否決數 +1，真正的下一步等房主按「繼續」。
+// 在線的有角色玩家都投完後結算：同意票嚴格多於反對票才通過（平票否決）。離線沒投的人當作缺席。
+// 結算 = 短租約鎖 + 重新抓資料 + 確認還在 vote 階段（冪等：多人同時呼叫只會有一個真的寫入）。
 async function resolveTeamVote(){
-  if(resolveBusy) return;
-  resolveBusy = true;
   try{
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ resolveBusy=false; return; }
-    const fd = fresh.data();
-    const players = await avalonFreshPlayers(fd.roles||{});
-    const votes = fd.teamVotes || {};
-    if(!players.every(p=> votes[p.id]!=null)){ resolveBusy=false; return; }
-    const t = avalonTally(votes);
-    const patch = {phase:"voteresult", lastActivityAt: Date.now()};
-    if(!t.approved) patch.rejectCount = (fd.rejectCount||0)+1;
-    await roomRef.update(patch);
+    await withFreshRoom(async (fd, players)=>{
+      const plan = avalonPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="resolveVote") await avalonResolveVoteInner(fd);
+    }, {tries:6});
   }catch(e){}
-  resolveBusy = false;
+}
+async function avalonResolveVoteInner(fd){
+  const t = avalonTally(fd.teamVotes || {});
+  const patch = {phase:"voteresult", teamApproved: t.approved, lastActivityAt: Date.now()};
+  if(!t.approved) patch.rejectCount = (fd.rejectCount||0)+1;
+  await roomRef.update(patch);
 }
 
 async function doAvalonContinueVote(){
@@ -4829,14 +5272,15 @@ async function doAvalonContinueVote(){
     if(!fresh || !fresh.exists || fresh.data().phase!=="voteresult"){ voteBusy=false; return; }
     const fd = fresh.data();
     const t = avalonTally(fd.teamVotes);
-    if(t.approved){
+    const approved = typeof fd.teamApproved==="boolean" ? fd.teamApproved : t.approved;
+    if(approved){
       await roomRef.update({phase:"mission", missionVotes:{}, rejectCount:0, lastActivityAt: Date.now()});
     } else if((fd.rejectCount||0)>=5){
       await roomRef.update({phase:"ended", winner:"evil", winReason:"reject5", lastActivityAt: Date.now()});
     } else {
       const players = await avalonFreshPlayers(fd.roles||{});
-      const leaderId = avalonNextLeader(players.map(p=>p.id), fd.leaderId);
-      await roomRef.update({phase:"team", leaderId, teamSelection:[], teamVotes:{}, missionVotes:{}, lastActivityAt: Date.now()});
+      const leaderId = avalonLeaderAfter(fd, players);
+      await roomRef.update({phase:"team", leaderId, teamSelection:[], teamVotes:{}, missionVotes:{}, teamApproved:null, lastActivityAt: Date.now()});
     }
   }catch(e){}
   voteBusy = false;
@@ -4845,9 +5289,8 @@ async function doAvalonContinueVote(){
 async function doMissionCard(card){
   if(voteBusy) return;
   voteBusy = true;
+  let wrote = false;
   try{
-    const lease = await avalonLease();
-    if(!lease.acquired){ voteBusy=false; return; }
     const fresh = await roomRef.get().catch(()=>null);
     if(!fresh || !fresh.exists || fresh.data().phase!=="mission"){ voteBusy=false; return; }
     const fd = fresh.data();
@@ -4856,40 +5299,47 @@ async function doMissionCard(card){
     if((fd.missionVotes||{})[identity.playerId]!=null){ voteBusy=false; return; }
     // 好人只能出成功，就算畫面被改過也一樣。
     const myCard = (card==="fail" && isEvilRole((fd.roles||{})[identity.playerId])) ? "fail" : "success";
-    const missionVotes = Object.assign({}, fd.missionVotes||{}, {[identity.playerId]: myCard});
-    const players = await avalonFreshPlayers(fd.roles||{});
-    const members = team.filter(id=>players.some(p=>p.id===id));
-    const allVoted = members.every(id=> missionVotes[id]!=null);
-    await roomRef.update({missionVotes, lastActivityAt: Date.now()});
-    if(allVoted) await resolveMission();
-  }catch(e){}
+    wrote = await writeOwnField("missionVotes."+identity.playerId, myCard, "mission");
+    if(!wrote) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
+  if(wrote) await resolveMission();
 }
 
-// 所有隊員出完牌後結算：失敗票數達標（第 4 輪 7 人以上要 2 張）任務才失敗。
+// 在線的隊員都出完牌後結算：失敗票數達標（第 4 輪 7 人以上要 2 張）任務才失敗。同樣是鎖 + 重抓 + 確認階段（冪等）。
 async function resolveMission(){
-  if(resolveBusy) return;
-  resolveBusy = true;
   try{
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="mission"){ resolveBusy=false; return; }
-    const fd = fresh.data();
-    const players = await avalonFreshPlayers(fd.roles||{});
-    const team = fd.teamSelection || [];
-    const mv = fd.missionVotes || {};
-    const members = team.filter(id=>players.some(p=>p.id===id));
-    if(!members.every(id=> mv[id]!=null)){ resolveBusy=false; return; }
-    const missionNo = fd.missionNo || 1;
-    const prev = fd.missionResults || [];
-    if(prev.length>=missionNo){ resolveBusy=false; return; }
-    const fails = team.filter(id=> mv[id]==="fail").length;
-    const n = avalonClampN(Object.keys(fd.roles||{}).length);
-    const ok = fails < avalonFailsNeeded(n, missionNo);
-    await roomRef.update({
-      phase:"missionresult", missionResults:[...prev, {ok, fails}], lastMissionFails: fails, lastActivityAt: Date.now()
-    });
+    await withFreshRoom(async (fd, players)=>{
+      const plan = avalonPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="resolveMission") await avalonResolveMissionInner(fd);
+    }, {tries:6});
   }catch(e){}
-  resolveBusy = false;
+}
+async function avalonResolveMissionInner(fd){
+  const team = fd.teamSelection || [];
+  const mv = fd.missionVotes || {};
+  const missionNo = fd.missionNo || 1;
+  const prev = fd.missionResults || [];
+  if(prev.length>=missionNo) return;
+  const fails = team.filter(id=> mv[id]==="fail").length;
+  const n = avalonClampN(Object.keys(fd.roles||{}).length);
+  const ok = fails < avalonFailsNeeded(n, missionNo);
+  await roomRef.update({
+    phase:"missionresult", missionResults:[...prev, {ok, fails}], lastMissionFails: fails, lastActivityAt: Date.now()
+  });
+}
+
+// 房主端看門狗：隊長離線 → 換隊長；在線的人都投完/出完牌但沒人結算 → 補結算；刺客離線 → 當作沒刺中。
+async function avalonWatchdog(){
+  if(!avalonPlan(roomData, playersData, Date.now(), identity.playerId)) return;
+  await withFreshRoom(async (fd, players)=>{
+    const plan = avalonPlan(fd, players, Date.now(), identity.playerId);
+    if(!plan) return;
+    if(plan.kind==="leader") await roomRef.update({leaderId: plan.leaderId, lastActivityAt: Date.now()});
+    else if(plan.kind==="resolveVote") await avalonResolveVoteInner(fd);
+    else if(plan.kind==="resolveMission") await avalonResolveMissionInner(fd);
+    else if(plan.kind==="assassinMiss") await roomRef.update({phase:"ended", winner:"good", winReason:"assassinMiss", assassinTarget:null, lastActivityAt: Date.now()});
+  }, {tries:4});
 }
 
 async function doAvalonContinueMission(){
@@ -4909,7 +5359,7 @@ async function doAvalonContinueMission(){
       await roomRef.update({phase:"assassin", assassinTarget:null, lastActivityAt: Date.now()});
     } else {
       const players = await avalonFreshPlayers(fd.roles||{});
-      const leaderId = avalonNextLeader(players.map(p=>p.id), fd.leaderId);
+      const leaderId = avalonLeaderAfter(fd, players);
       await roomRef.update({
         phase:"team", leaderId, missionNo:(fd.missionNo||1)+1, rejectCount:0,
         teamSelection:[], teamVotes:{}, missionVotes:{}, lastActivityAt: Date.now()
@@ -4952,14 +5402,11 @@ async function doRematchAvalon(){
 
 // ---------- 機密代號：資料 / 動作 ----------
 
-// 租約沒搶到就稍等再試幾次（租約有效 4 秒、不會主動釋放）。
-async function cnLease(){
-  for(let i=0;i<5;i++){
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(lease && lease.acquired) return {acquired:true};
-    await new Promise(r=>setTimeout(r, 1000));
-  }
-  return {acquired:false};
+// 這個模式的臨界區間（翻牌改 board、換回合）全部走 withFreshRoom：短租約鎖 + 重新抓資料 + 做完立刻釋放。
+// 搶不到鎖會自動退避重試；真的失敗才回傳 false，由呼叫端顯示「請再按一次」。
+async function cnLocked(fn){
+  const r = await withFreshRoom(fn);
+  return r.ok;
 }
 async function cnFreshPlayers(){
   const snap = await playersCol.get().catch(()=>({docs:[]}));
@@ -5021,23 +5468,22 @@ async function doCnSubmitClue(){
   voteBusy = true;
   const num = Math.max(0, Math.min(9, cnNumDraft|0));
   try{
-    const lease = await cnLease();
-    if(!lease.acquired){ cnClueError = "目前有人正在操作，請再按一次"; voteBusy=false; render(); return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="clue"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const team = fd.turnTeam;
-    if(!fd.spymasters || fd.spymasters[team]!==identity.playerId){ voteBusy=false; return; }
-    const v2 = cnValidateClue(v.word, fd.board||[]);
-    if(!v2.ok){ cnClueError = v2.msg; voteBusy=false; render(); return; }
-    const log = (fd.clueLog||[]).concat([{team, word:v2.word, num}]);
-    await roomRef.update({
-      phase:"guess", clue:{word:v2.word, num}, guessesLeft: num===0 ? 99 : num+1,
-      clueLog: log, lastActivityAt: Date.now()
+    const ok = await cnLocked(async (fd)=>{
+      if(fd.phase!=="clue") return;
+      const team = fd.turnTeam;
+      if(!fd.spymasters || fd.spymasters[team]!==identity.playerId) return;
+      const v2 = cnValidateClue(v.word, fd.board||[]);
+      if(!v2.ok){ cnClueError = v2.msg; return; }
+      const log = (fd.clueLog||[]).concat([{team, word:v2.word, num}]);
+      await roomRef.update({
+        phase:"guess", clue:{word:v2.word, num}, guessesLeft: num===0 ? 99 : num+1,
+        clueLog: log, lastActivityAt: Date.now()
+      });
+      cnClueDraft = ""; cnClueError = "";
+      beep(520,70,"sine"); vibrate(15);
     });
-    cnClueDraft = ""; cnClueError = "";
-    beep(520,70,"sine"); vibrate(15);
-  }catch(e){}
+    if(!ok) cnClueError = "目前有人正在操作，請再按一次";
+  }catch(e){ cnClueError = "目前有人正在操作，請再按一次"; }
   voteBusy = false;
   render();
 }
@@ -5048,26 +5494,24 @@ async function doCnGuess(){
   if(idx==null) return;
   voteBusy = true;
   try{
-    const lease = await cnLease();
-    if(!lease.acquired){ voteBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="guess"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const players = await cnFreshPlayers();
-    const meDoc = players.find(p=>p.id===identity.playerId);
-    const sm = fd.spymasters || {};
-    if(!meDoc || meDoc.team!==fd.turnTeam || sm[fd.turnTeam]===identity.playerId){ voteBusy=false; return; }
-    const res = cnApplyGuess({board: fd.board||[], turnTeam: fd.turnTeam, guessesLeft: fd.guessesLeft||0}, idx);
-    if(!res){ cnSel = null; voteBusy=false; render(); return; }
-    await roomRef.update({
-      board: res.board, phase: res.phase, turnTeam: res.turnTeam, guessesLeft: res.guessesLeft,
-      clue: res.phase==="guess" ? (fd.clue||null) : null,
-      redLeft: res.redLeft, blueLeft: res.blueLeft,
-      winner: res.winner, winReason: res.winReason, lastActivityAt: Date.now()
+    const ok = await cnLocked(async (fd, players)=>{
+      if(fd.phase!=="guess") return;
+      const meDoc = players.find(p=>p.id===identity.playerId);
+      const sm = fd.spymasters || {};
+      if(!meDoc || meDoc.team!==fd.turnTeam || sm[fd.turnTeam]===identity.playerId) return;
+      const res = cnApplyGuess({board: fd.board||[], turnTeam: fd.turnTeam, guessesLeft: fd.guessesLeft||0}, idx);
+      if(!res){ cnSel = null; return; }
+      await roomRef.update({
+        board: res.board, phase: res.phase, turnTeam: res.turnTeam, guessesLeft: res.guessesLeft,
+        clue: res.phase==="guess" ? (fd.clue||null) : null,
+        redLeft: res.redLeft, blueLeft: res.blueLeft,
+        winner: res.winner, winReason: res.winReason, lastActivityAt: Date.now()
+      });
+      cnSel = null;
+      if(res.outcome==="own"){ beep(660,90,"sine"); vibrate(20); } else { beep(180,220,"sawtooth"); vibrate([40,40,40]); }
     });
-    cnSel = null;
-    if(res.outcome==="own"){ beep(660,90,"sine"); vibrate(20); } else { beep(180,220,"sawtooth"); vibrate([40,40,40]); }
-  }catch(e){}
+    if(!ok) showToast(MSG_RETRY);   // 選取的牌保留著，按「確定翻開」再試一次就好
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
   render();
 }
@@ -5076,44 +5520,49 @@ async function doCnEndGuess(){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const lease = await cnLease();
-    if(!lease.acquired){ voteBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="guess"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const players = await cnFreshPlayers();
-    const meDoc = players.find(p=>p.id===identity.playerId);
-    const sm = fd.spymasters || {};
-    if(!meDoc || meDoc.team!==fd.turnTeam || sm[fd.turnTeam]===identity.playerId){ voteBusy=false; return; }
-    await roomRef.update({phase:"clue", turnTeam: cnOther(fd.turnTeam), clue:null, guessesLeft:0, lastActivityAt: Date.now()});
-    cnSel = null;
-  }catch(e){}
+    const ok = await cnLocked(async (fd, players)=>{
+      if(fd.phase!=="guess") return;
+      const meDoc = players.find(p=>p.id===identity.playerId);
+      const sm = fd.spymasters || {};
+      if(!meDoc || meDoc.team!==fd.turnTeam || sm[fd.turnTeam]===identity.playerId) return;
+      await roomRef.update({phase:"clue", turnTeam: cnOther(fd.turnTeam), clue:null, guessesLeft:0, lastActivityAt: Date.now()});
+      cnSel = null;
+    });
+    if(!ok) showToast(MSG_RETRY);
+  }catch(e){ showToast(MSG_RETRY); }
   voteBusy = false;
   render();
 }
 
-// 房主的安全閥：指揮官離開了就換同隊另一位當指揮官；否則直接跳過這隊目前的回合。
+async function cnApplyPlan(plan, fd){
+  if(plan.kind==="swap"){
+    const sm = Object.assign({}, fd.spymasters||{});
+    sm[plan.team] = plan.spy;
+    await roomRef.update({spymasters: sm, lastActivityAt: Date.now()});
+  } else {
+    await roomRef.update({phase:"clue", turnTeam: cnOther(fd.turnTeam), clue:null, guessesLeft:0, lastActivityAt: Date.now()});
+  }
+}
+
+// 房主端看門狗：指揮官離線就自動換人、整隊猜測者都離線就跳過回合。
+async function cnWatchdog(){
+  if(!cnPlan(roomData, playersData, Date.now(), identity.playerId)) return;
+  await withFreshRoom(async (fd, players)=>{
+    const plan = cnPlan(fd, players, Date.now(), identity.playerId);
+    if(plan) await cnApplyPlan(plan, fd);
+  }, {tries:4});
+}
+
+// 房主的安全閥（手動按鈕）：指揮官離開/離線了就換同隊另一位當指揮官；否則直接跳過這隊目前的回合。
 async function doCnForceSkip(){
   try{
-    const lease = await cnLease();
-    if(!lease.acquired) return;
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists) return;
-    const fd = fresh.data();
-    if(fd.phase!=="clue" && fd.phase!=="guess") return;
-    const players = await cnFreshPlayers();
-    const team = fd.turnTeam;
-    const sm = Object.assign({}, fd.spymasters||{});
-    const spyPresent = players.some(p=>p.id===sm[team]);
-    if(!spyPresent){
-      const cands = players.filter(p=>p.team===team);
-      if(cands.length){
-        sm[team] = cnPickOne(cands).id;
-        await roomRef.update({spymasters: sm, lastActivityAt: Date.now()});
-        return;
-      }
-    }
-    await roomRef.update({phase:"clue", turnTeam: cnOther(team), clue:null, guessesLeft:0, lastActivityAt: Date.now()});
+    const r = await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="clue" && fd.phase!=="guess") return;
+      const plan = cnPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="swap" && fd.phase==="clue") await cnApplyPlan(plan, fd);
+      else await cnApplyPlan({kind:"skip"}, fd);
+    }, {tries:5});
+    if(!r.ok) showToast(MSG_RETRY);
   }catch(e){}
 }
 
@@ -5143,15 +5592,6 @@ async function doRematchCodenames(){
 
 // ---------- 只有一個：資料 / 動作 ----------
 
-// 租約沒搶到就稍等再試幾次（租約有效 4 秒、不會主動釋放）。
-async function joLease(){
-  for(let i=0;i<5;i++){
-    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
-    if(lease && lease.acquired) return {acquired:true};
-    await new Promise(r=>setTimeout(r, 1000));
-  }
-  return {acquired:false};
-}
 async function joFreshPlayers(){
   const snap = await playersCol.get().catch(()=>({docs:[]}));
   return snap.docs.map(dd=>({id:dd.id, ...dd.data()})).sort((a,b)=>a.joinedAt-b.joinedAt);
@@ -5178,6 +5618,13 @@ async function doStartJustone(){
   }catch(e){}
 }
 
+// 在線的、而且有玩家文件的 id（給「下一位猜詞者 / 提示者」用）；沒有任何人在線時退回全部。
+function joPresentOnline(players){
+  const on = onlineIdsOf(players, Date.now(), identity.playerId);
+  return on.length ? on : players.map(p=>p.id);
+}
+
+// 每位提示者只寫「自己的」hints.<id>，不需要鎖，同時送出不會互相蓋掉；只有結算會拿短租約鎖（重抓資料、確認階段，冪等）。
 async function doJoSubmitHint(){
   if(voteBusy) return;
   const rd0 = roomData;
@@ -5185,9 +5632,8 @@ async function doJoSubmitHint(){
   const v = joValidateHint(joHintDraft, (rd0.deck||[])[rd0.deckIndex||0] || "");
   if(!v.ok){ joHintError = v.msg; render(); return; }
   voteBusy = true;
+  let wrote = false;
   try{
-    const lease = await joLease();
-    if(!lease.acquired){ joHintError = "目前有人正在操作，請再按一次"; voteBusy=false; render(); return; }
     const fresh = await roomRef.get().catch(()=>null);
     if(!fresh || !fresh.exists || fresh.data().phase!=="clue"){ voteBusy=false; return; }
     const fd = fresh.data();
@@ -5196,46 +5642,42 @@ async function doJoSubmitHint(){
     if((fd.hints||{})[me]!=null){ voteBusy=false; return; }
     const v2 = joValidateHint(v.text, (fd.deck||[])[fd.deckIndex||0] || "");
     if(!v2.ok){ joHintError = v2.msg; voteBusy=false; render(); return; }
-    const hints = Object.assign({}, fd.hints||{}, {[me]: v2.text});
-    const players = await joFreshPlayers();
-    await roomRef.update({hints, lastActivityAt: Date.now()});
-    joHintDraft = ""; joHintError = "";
-    playVoteSound();
-    const allIn = (fd.clueEligible||[]).filter(id=>players.some(p=>p.id===id)).every(id=> hints[id]!=null);
-    if(allIn) await joResolve(false);
-  }catch(e){}
+    wrote = await writeOwnField("hints."+me, v2.text, "clue");
+    if(wrote){ joHintDraft = ""; joHintError = ""; playVoteSound(); }
+    else { joHintError = MSG_RETRY; }   // 草稿還在，再按一次送出就好
+  }catch(e){ joHintError = MSG_RETRY; }
   voteBusy = false;
   render();
+  if(wrote) await joResolve(false);
 }
 
-// 結算提示（呼叫前要已經拿到租約）：重新讀房間、確認還在 clue 階段，再把重複的提示作廢並進入 guess。
+// 結算提示：鎖 + 重新讀房間、確認還在 clue 階段，再把重複的提示作廢並進入 guess。
 // force=true 時不要求每個人都送出（房主強制進入猜測）。
+async function joResolveInner(fd, force){
+  if(fd.phase!=="clue") return;
+  const elig = fd.clueEligible || [];
+  const r = joResolveHints(fd.hints || {}, elig, (fd.deck||[])[fd.deckIndex||0] || "");
+  await roomRef.update({phase:"guess", validHints: r.validHints, removedIds: r.removedIds, lastActivityAt: Date.now()});
+}
 async function joResolve(force){
-  if(resolveBusy) return;
-  resolveBusy = true;
   try{
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="clue"){ resolveBusy=false; return; }
-    const fd = fresh.data();
-    const players = await joFreshPlayers();
-    const hints = fd.hints || {};
-    const elig = fd.clueEligible || [];
-    if(!force && !elig.filter(id=>players.some(p=>p.id===id)).every(id=> hints[id]!=null)){ resolveBusy=false; return; }
-    const r = joResolveHints(hints, elig, (fd.deck||[])[fd.deckIndex||0] || "");
-    await roomRef.update({phase:"guess", validHints: r.validHints, removedIds: r.removedIds, lastActivityAt: Date.now()});
+    await withFreshRoom(async (fd, players)=>{
+      if(force){ if(isHostNow(players)) await joResolveInner(fd, true); return; }
+      const plan = joPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="resolve") await joResolveInner(fd, false);
+    }, {tries:6});
   }catch(e){}
-  resolveBusy = false;
 }
 
 async function doJoForce(){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const lease = await joLease();
-    if(!lease.acquired){ voteBusy=false; return; }
-    const players = await joFreshPlayers();
-    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
-    await joResolve(true);
+    const r = await withFreshRoom(async (fd, players)=>{
+      if(!isHostNow(players)) return;
+      await joResolveInner(fd, true);
+    }, {tries:5});
+    if(!r.ok) showToast(MSG_RETRY);
   }catch(e){}
   voteBusy = false;
   render();
@@ -5251,23 +5693,22 @@ async function doJoGuess(skip){
   }
   voteBusy = true;
   try{
-    const lease = await joLease();
-    if(!lease.acquired){ joGuessError = "目前有人正在操作，請再按一次"; voteBusy=false; render(); return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="guess"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    if(fd.guesserId!==identity.playerId){ voteBusy=false; return; }
-    const word = (fd.deck||[])[fd.deckIndex||0] || "";
-    const action = skip ? "skip" : (joGuessCorrect(text, word) ? "correct" : "wrong");
-    const r = joApplyResult({cardsUsed: fd.cardsUsed||0, score: fd.score||0}, action);
-    const joLog = (fd.joLog||[]).concat([{word, verdict: r.verdict, guesser: fd.guesserId, overridden:false}]);
-    await roomRef.update({
-      phase:"result", joGuess: skip ? null : text, joVerdict: r.verdict, joOverridden:false,
-      cardsUsed: r.cardsUsed, score: r.score, joLog, lastActivityAt: Date.now()
+    const r = await withFreshRoom(async (fd)=>{
+      if(fd.phase!=="guess") return;
+      if(fd.guesserId!==identity.playerId) return;
+      const word = (fd.deck||[])[fd.deckIndex||0] || "";
+      const action = skip ? "skip" : (joGuessCorrect(text, word) ? "correct" : "wrong");
+      const r = joApplyResult({cardsUsed: fd.cardsUsed||0, score: fd.score||0}, action);
+      const joLog = (fd.joLog||[]).concat([{word, verdict: r.verdict, guesser: fd.guesserId, overridden:false}]);
+      await roomRef.update({
+        phase:"result", joGuess: skip ? null : text, joVerdict: r.verdict, joOverridden:false,
+        cardsUsed: r.cardsUsed, score: r.score, joLog, lastActivityAt: Date.now()
+      });
+      joGuessDraft = ""; joGuessError = "";
+      if(r.verdict==="correct") playResultSound(true); else if(r.verdict==="wrong") playResultSound(false);
     });
-    joGuessDraft = ""; joGuessError = "";
-    if(r.verdict==="correct") playResultSound(true); else if(r.verdict==="wrong") playResultSound(false);
-  }catch(e){}
+    if(!r.ok) joGuessError = "目前有人正在操作，請再按一次";   // 答案草稿還在
+  }catch(e){ joGuessError = "目前有人正在操作，請再按一次"; }
   voteBusy = false;
   render();
 }
@@ -5277,66 +5718,76 @@ async function doJoOverride(){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const lease = await joLease();
-    if(!lease.acquired){ voteBusy=false; return; }
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="result"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const players = await joFreshPlayers();
-    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
-    const r = joOverride({cardsUsed: fd.cardsUsed||0, score: fd.score||0, verdict: fd.joVerdict, overridden: !!fd.joOverridden});
-    if(!r){ voteBusy=false; return; }
-    const joLog = (fd.joLog||[]).slice();
-    if(joLog.length) joLog[joLog.length-1] = Object.assign({}, joLog[joLog.length-1], {verdict:"correct", overridden:true});
-    await roomRef.update({joVerdict:"correct", joOverridden:true, cardsUsed: r.cardsUsed, score: r.score, joLog, lastActivityAt: Date.now()});
-    playResultSound(true);
+    const r = await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="result") return;
+      if(!isHostNow(players)) return;
+      const r = joOverride({cardsUsed: fd.cardsUsed||0, score: fd.score||0, verdict: fd.joVerdict, overridden: !!fd.joOverridden});
+      if(!r) return;
+      const joLog = (fd.joLog||[]).slice();
+      if(joLog.length) joLog[joLog.length-1] = Object.assign({}, joLog[joLog.length-1], {verdict:"correct", overridden:true});
+      await roomRef.update({joVerdict:"correct", joOverridden:true, cardsUsed: r.cardsUsed, score: r.score, joLog, lastActivityAt: Date.now()});
+      playResultSound(true);
+    }, {tries:5});
+    if(!r.ok) showToast(MSG_RETRY);
   }catch(e){}
   voteBusy = false;
   render();
 }
 
-// 房主按「下一輪」：換下一位猜詞者與下一張牌，或牌用完就結束。
+// 房主按「下一輪」：換下一位（在線的）猜詞者與下一張牌，或牌用完就結束。
 async function doJoContinue(){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists || fresh.data().phase!=="result"){ voteBusy=false; return; }
-    const fd = fresh.data();
-    const players = await joFreshPlayers();
-    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
-    const after = joAfterRound({cardsUsed: fd.cardsUsed||0, total: joTotal(fd.settings), deckIndex: fd.deckIndex||0, deckLen: (fd.deck||[]).length, verdict: fd.joVerdict});
-    const patch = joAdvancePatch(fd, fd.cardsUsed||0, after.nextIndex, players.map(p=>p.id));
-    patch.lastActivityAt = Date.now();
-    await roomRef.update(patch);
-    joResetLocal();
+    const r = await withFreshRoom(async (fd, players)=>{
+      if(fd.phase!=="result") return;
+      if(!isHostNow(players)) return;
+      const after = joAfterRound({cardsUsed: fd.cardsUsed||0, total: joTotal(fd.settings), deckIndex: fd.deckIndex||0, deckLen: (fd.deck||[]).length, verdict: fd.joVerdict});
+      const patch = joAdvancePatch(fd, fd.cardsUsed||0, after.nextIndex, joPresentOnline(players));
+      patch.lastActivityAt = Date.now();
+      await roomRef.update(patch);
+      joResetLocal();
+    }, {tries:5});
+    if(!r.ok) showToast(MSG_RETRY);
   }catch(e){}
   voteBusy = false;
   render();
 }
 
-// 猜詞者離開後沒人能猜，房主可以把這張牌當作跳過、換下一位猜詞者。
+// 猜詞者離開/離線後沒人能猜，把這張牌當作跳過、換下一位猜詞者（房主手動按，或看門狗自動做）。
+async function joReplaceInner(fd, players){
+  const word = (fd.deck||[])[fd.deckIndex||0] || "";
+  const r = joApplyResult({cardsUsed: fd.cardsUsed||0, score: fd.score||0}, "skip");
+  const joLog = (fd.joLog||[]).concat([{word, verdict:"skip", guesser: fd.guesserId, overridden:false}]);
+  const patch = joAdvancePatch(fd, r.cardsUsed, (fd.deckIndex||0)+1, joPresentOnline(players));
+  patch.joLog = joLog; patch.score = r.score; patch.lastActivityAt = Date.now();
+  await roomRef.update(patch);
+  joResetLocal();
+}
 async function doJoReplaceGuesser(){
   if(voteBusy) return;
   voteBusy = true;
   try{
-    const fresh = await roomRef.get().catch(()=>null);
-    if(!fresh || !fresh.exists) { voteBusy=false; return; }
-    const fd = fresh.data();
-    if(fd.phase!=="clue" && fd.phase!=="guess"){ voteBusy=false; return; }
-    const players = await joFreshPlayers();
-    if(!players.length || players[0].id!==identity.playerId){ voteBusy=false; return; }
-    if(players.some(p=>p.id===fd.guesserId)){ voteBusy=false; return; }
-    const word = (fd.deck||[])[fd.deckIndex||0] || "";
-    const r = joApplyResult({cardsUsed: fd.cardsUsed||0, score: fd.score||0}, "skip");
-    const joLog = (fd.joLog||[]).concat([{word, verdict:"skip", guesser: fd.guesserId, overridden:false}]);
-    const patch = joAdvancePatch(fd, r.cardsUsed, (fd.deckIndex||0)+1, players.map(p=>p.id));
-    patch.joLog = joLog; patch.score = r.score; patch.lastActivityAt = Date.now();
-    await roomRef.update(patch);
-    joResetLocal();
+    const r = await withFreshRoom(async (fd, players)=>{
+      if(!isHostNow(players)) return;
+      const plan = joPlan(fd, players, Date.now(), identity.playerId);
+      if(plan && plan.kind==="replace") await joReplaceInner(fd, players);
+    }, {tries:5});
+    if(!r.ok) showToast(MSG_RETRY);
   }catch(e){}
   voteBusy = false;
   render();
+}
+
+// 房主端看門狗：猜詞者離線 → 跳過這張牌換人；在線的提示者都送出了卻沒人結算 → 補結算。
+async function joWatchdog(){
+  if(!joPlan(roomData, playersData, Date.now(), identity.playerId)) return;
+  await withFreshRoom(async (fd, players)=>{
+    const plan = joPlan(fd, players, Date.now(), identity.playerId);
+    if(!plan) return;
+    if(plan.kind==="replace") await joReplaceInner(fd, players);
+    else if(plan.kind==="resolve") await joResolveInner(fd, false);
+  }, {tries:4});
 }
 
 // 再來一局：回到大廳（保留玩家與設定），大家重新按準備。
@@ -5459,10 +5910,10 @@ function reconnectIfNeeded(){
   connectRoom();
 }
 document.addEventListener("visibilitychange", ()=>{
-  if(document.visibilityState === "visible") reconnectIfNeeded();
+  if(document.visibilityState === "visible"){ reconnectIfNeeded(); sendHeartbeat(true); }
 });
-window.addEventListener("focus", reconnectIfNeeded);
-window.addEventListener("online", reconnectIfNeeded);
+window.addEventListener("focus", ()=>{ reconnectIfNeeded(); sendHeartbeat(true); });
+window.addEventListener("online", ()=>{ reconnectIfNeeded(); sendHeartbeat(true); });
 </script>
 </body>
 </html>
