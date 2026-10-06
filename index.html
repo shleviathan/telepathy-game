@@ -179,6 +179,18 @@ select{
 .optbtn.picked{background:linear-gradient(150deg, var(--accent), #c9ab98); border-color:var(--accent); color:var(--accent-ink);}
 .optbtn.picked .letter{color:var(--accent-ink); opacity:.85;}
 
+.pickgrid{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
+.pickbtn{display:flex; align-items:center; gap:10px; text-align:left; padding:12px 14px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-weight:700; font-size:14px;}
+.pickbtn.picked{background:linear-gradient(150deg, var(--accent), #c9ab98); border-color:var(--accent); color:var(--accent-ink);}
+.pickbtn:disabled{opacity:.5;}
+.avtracker{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:6px 0 12px;}
+.avdots{display:flex; gap:8px;}
+.avdot{width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:"JetBrains Mono",monospace; font-weight:800; font-size:13px; border:2px solid var(--line); background:var(--surface-2); color:var(--muted);}
+.avdot.cur{border-color:var(--accent); color:var(--accent);}
+.avdot.ok{background:var(--safe); border-color:var(--safe); color:#fff;}
+.avdot.bad{background:var(--warn); border-color:var(--warn); color:#fff;}
+.avreject{font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.05em;}
+
 .mlranklist{display:flex; flex-direction:column; gap:8px; margin-top:4px; position:relative;}
 .mlrankitem{display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:10px; background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:9px 12px; transition:transform .18s ease; touch-action:none;}
 .mlrankitem.base{border-color:var(--accent);}
@@ -249,6 +261,9 @@ select{
 .losebanner{text-align:center; padding:26px 10px; border-radius:18px; margin-bottom:16px; background:linear-gradient(160deg, color-mix(in srgb, var(--warn) 20%, var(--surface)), var(--surface)); border:1.5px solid var(--warn);}
 .losebanner h2{font-size:24px; color:var(--warn); background:none; -webkit-text-fill-color:currentColor;}
 .losebanner p{margin:6px 0 0; color:var(--muted); font-size:14px; font-weight:600;}
+.winbanner{text-align:center; padding:26px 10px; border-radius:18px; margin-bottom:16px; background:linear-gradient(160deg, color-mix(in srgb, var(--safe) 20%, var(--surface)), var(--surface)); border:1.5px solid var(--safe);}
+.winbanner h2{font-size:24px; color:var(--safe); background:none; -webkit-text-fill-color:currentColor;}
+.winbanner p{margin:6px 0 0; color:var(--muted); font-size:14px; font-weight:600;}
 
 .hidden{display:none !important;}
 footer{text-align:center; font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:.05em;}
@@ -281,8 +296,8 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v2.8";
-const APP_UPDATED = "2026-09-15";
+const APP_VERSION = "v4.0";
+const APP_UPDATED = "2026-10-06";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
   {id:"travel", label:"旅行"},
@@ -406,6 +421,131 @@ function pickDrawPrompt(usedKeys){
   const text = `${subject}在${place}${action}`;
   return {key, text, subject, place, action, resetUsed};
 }
+
+// 「狼人殺」角色設定：狼人/村民一定存在，其他角色由房主開關決定要不要加進這一局。
+const WEREWOLF_ROLE_TOGGLES = ["seer","witch","hunter","guard"];
+const ROLE_LABEL = {
+  wolf:"🐺 狼人", villager:"😇 村民", seer:"🔮 預言家", witch:"🧪 女巫", hunter:"🔫 獵人", guard:"🛡️ 醫生"
+};
+// 狼人人數不給房主調整，直接依人數自動算：5人以下1隻、9人以下2隻、其餘3隻。
+function computeWolfCount(n){ return n<=5 ? 1 : (n<=9 ? 2 : 3); }
+// 洗牌玩家順序後依序分配：狼人優先，接著依開關分配特殊角色，剩下的人都是村民。
+function assignWerewolfRoles(players, rolesSettings){
+  const shuffled = players.map(p=>p.id);
+  for(let i=shuffled.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const roles = {};
+  const wolfCount = computeWolfCount(players.length);
+  const pool = shuffled.slice();
+  pool.splice(0, wolfCount).forEach(id=>{ roles[id] = "wolf"; });
+  WEREWOLF_ROLE_TOGGLES.forEach(role=>{
+    if(rolesSettings && rolesSettings[role] && pool.length){
+      const id = pool.shift();
+      roles[id] = role;
+    }
+  });
+  pool.forEach(id=>{ roles[id] = "villager"; });
+  return roles;
+}
+// 夜晚行動的固定順序：醫生 → 狼人 → 預言家 → 女巫。狼人一定會行動，其他角色要開關開著、且該角色還活著才會輪到。
+// 找不到下一個該行動的角色就回傳 null，代表這一夜的行動都做完了，該進入結算。
+const WEREWOLF_NIGHT_STEPS = ["guard","wolf","seer","witch"];
+function nextNightStep(afterStep, rolesSettings, roles, players){
+  const startIdx = afterStep ? WEREWOLF_NIGHT_STEPS.indexOf(afterStep)+1 : 0;
+  for(let i=startIdx;i<WEREWOLF_NIGHT_STEPS.length;i++){
+    const step = WEREWOLF_NIGHT_STEPS[i];
+    if(step==="wolf"){
+      const aliveWolves = players.filter(p=>p.alive!==false && roles[p.id]==="wolf");
+      if(aliveWolves.length>0) return step;
+      continue;
+    }
+    if(!rolesSettings || !rolesSettings[step]) continue;
+    const holder = players.find(p=>p.alive!==false && roles[p.id]===step);
+    if(holder) return step;
+  }
+  return null;
+}
+
+// 「阿瓦隆」：人數對應的好壞人數、每輪任務隊伍人數，以及角色分配等純邏輯。
+const AVALON_TEAM_SIZES = {
+  5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5]
+};
+const AVALON_FACTION_COUNTS = {
+  5:{good:3, evil:2}, 6:{good:4, evil:2}, 7:{good:4, evil:3}, 8:{good:5, evil:3}, 9:{good:6, evil:3}, 10:{good:6, evil:4}
+};
+const AVALON_ROLE_LABEL = {
+  merlin:"🧙 梅林", percival:"🛡️ 派西維爾", loyal:"⚔️ 忠臣",
+  assassin:"🗡️ 刺客", morgana:"🧛 莫甘娜", mordred:"👿 莫德雷德", minion:"😈 爪牙"
+};
+const AVALON_ROLE_DESC = {
+  merlin:"你知道誰是壞人（莫德雷德除外）。任務成功三次後，要小心別被刺客認出來。",
+  percival:"你看得到兩個人，其中一個是梅林、另一個可能是莫甘娜，請判斷誰才是真的梅林並保護他。",
+  loyal:"你沒有任何情報，靠推理與觀察找出壞人，確保任務成功。",
+  assassin:"你是壞人。如果好人完成三次任務，你有最後一次機會刺殺梅林翻盤。",
+  morgana:"你是壞人，會被派西維爾誤認為梅林，盡量裝得像梅林。",
+  mordred:"你是壞人，而且梅林看不到你，可以放心混進好人當中。",
+  minion:"你是壞人，和夥伴一起暗中破壞任務。"
+};
+function isEvilRole(role){ return role==="assassin" || role==="morgana" || role==="mordred" || role==="minion"; }
+function avalonClampN(n){ return Math.max(5, Math.min(10, n|0)); }
+function avalonTeamSize(n, missionNo){
+  const row = AVALON_TEAM_SIZES[avalonClampN(n)];
+  return row[Math.max(0, Math.min(4, (missionNo|0)-1))];
+}
+// 第 4 輪任務在 7 人以上要 2 張失敗票才算失敗，其餘一律 1 張。
+function avalonFailsNeeded(n, missionNo){ return (missionNo===4 && n>=7) ? 2 : 1; }
+// 組隊投票：同意票嚴格多於反對票才通過，平票視為否決。
+function avalonTally(teamVotes){
+  let approve = 0, reject = 0;
+  Object.keys(teamVotes||{}).forEach(id=>{
+    if(teamVotes[id]==="approve") approve++;
+    else if(teamVotes[id]==="reject") reject++;
+  });
+  return {approve, reject, approved: approve>reject};
+}
+// 隊長依加入順序輪流；找不到目前隊長（例如他離開了）就回到第一位。
+function avalonNextLeader(orderedIds, currentId){
+  if(!orderedIds.length) return null;
+  const idx = orderedIds.indexOf(currentId);
+  return orderedIds[(idx+1) % orderedIds.length];
+}
+// 洗牌後先抽壞人：刺客 → 莫甘娜 → 莫德雷德（依開關、名額還有才給），剩下是爪牙；
+// 好人：梅林 → 派西維爾（依開關、名額還有才給），剩下是忠臣。
+function assignAvalonRoles(players, rolesSettings){
+  const shuffled = players.map(p=>p.id);
+  for(let i=shuffled.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const counts = AVALON_FACTION_COUNTS[avalonClampN(players.length)];
+  const rs = rolesSettings || {};
+  const roles = {};
+  const evilIds = shuffled.slice(0, counts.evil);
+  const goodIds = shuffled.slice(counts.evil, counts.evil + counts.good);
+  const evilRoles = ["assassin"];
+  if(rs.morgana) evilRoles.push("morgana");
+  if(rs.mordred) evilRoles.push("mordred");
+  evilIds.forEach((id,i)=>{ roles[id] = i<evilRoles.length ? evilRoles[i] : "minion"; });
+  const goodRoles = ["merlin"];
+  if(rs.percival) goodRoles.push("percival");
+  goodIds.forEach((id,i)=>{ roles[id] = i<goodRoles.length ? goodRoles[i] : "loyal"; });
+  return roles;
+}
+// 夜晚情報（純前端計算）：壞人互相認識；梅林看得到壞人（莫德雷德除外）；派西維爾看到梅林和莫甘娜但分不出誰是誰；忠臣什麼都看不到。
+function avalonNightInfo(roles, myId, orderedIds){
+  const my = roles[myId];
+  const ids = orderedIds || Object.keys(roles);
+  if(isEvilRole(my)) return {kind:"evil", ids: ids.filter(id=> id!==myId && roles[id] && isEvilRole(roles[id]))};
+  if(my==="merlin") return {kind:"merlin", ids: ids.filter(id=> roles[id] && isEvilRole(roles[id]) && roles[id]!=="mordred")};
+  if(my==="percival") return {kind:"percival", ids: ids.filter(id=> roles[id]==="merlin" || roles[id]==="morgana")};
+  return {kind:"none", ids:[]};
+}
+// 隊長正在挑選中的隊員（本地暫存，送出前不寫進資料庫）；avalonPickKey 用來在換輪/換隊長時自動清空，避免背景更新重畫把選擇洗掉。
+let avalonPickDraft = [];
+let avalonPickKey = "";
+let avalonPeek = false; // 是否展開「我的身分」提示
 
 function avatarOf(p){ return (p && p.avatar) || "🙂"; }
 const QUESTIONS = [
@@ -702,6 +842,33 @@ function render(){
     if(phase==="ended") return renderDrawEnded(isHost);
     return renderConnecting();
   }
+  if(gameType==="werewolf"){
+    if(phase==="lobby") return renderLobby(isHost);
+    // 遊戲已經開始後才加入/重新整理進來的人，房間裡沒有幫他分配角色，這些畫面都預設看得到者已有角色，直接擋掉。
+    if(!(roomData.roles && roomData.roles[identity.playerId])) return renderWerewolfNoRole();
+    if(phase==="night") return renderWerewolfNight(me, isHost);
+    if(phase==="hunter") return renderWerewolfHunterShoot(me, isHost);
+    if(phase==="daydeaths") return renderWerewolfDayDeaths(isHost);
+    if(phase==="discuss") return renderWerewolfDiscuss(isHost);
+    if(phase==="vote") return renderWerewolfVote(me, isHost);
+    if(phase==="voteresult") return renderWerewolfVoteResult(isHost);
+    if(phase==="ended") return renderWerewolfEnded(isHost);
+    return renderConnecting();
+  }
+  if(gameType==="avalon"){
+    if(phase==="lobby") return renderLobby(isHost);
+    // 遊戲已經開始後才加入/重新整理進來的人，房間裡沒有幫他分配角色，這些畫面都預設看得到者已有角色，直接擋掉。
+    if(!(roomData.roles && roomData.roles[identity.playerId])) return renderAvalonNoRole();
+    if(phase==="reveal") return renderAvalonReveal(me, isHost);
+    if(phase==="team") return renderAvalonTeam(me, isHost);
+    if(phase==="vote") return renderAvalonVote(me, isHost);
+    if(phase==="voteresult") return renderAvalonVoteResult(isHost);
+    if(phase==="mission") return renderAvalonMission(me, isHost);
+    if(phase==="missionresult") return renderAvalonMissionResult(isHost);
+    if(phase==="assassin") return renderAvalonAssassin(me, isHost);
+    if(phase==="ended") return renderAvalonEnded(isHost);
+    return renderConnecting();
+  }
   if(phase==="lobby") return renderLobby(isHost);
   if(phase==="question") return renderQuestion(me, isHost);
   if(phase==="reveal") return renderReveal(isHost);
@@ -729,10 +896,20 @@ function renderHome(){
             <span class="gc-title">誰最可能</span>
             <span class="gc-desc">選出全場最像的那個人</span>
           </button>
-          <button class="gamecard wide ${homeGameType==='draw'?'on':''}" data-game="draw">
+          <button class="gamecard ${homeGameType==='draw'?'on':''}" data-game="draw">
             <span class="gc-emoji">🎨</span>
             <span class="gc-title">接力畫猜</span>
             <span class="gc-desc">大家接力畫一張圖，猜謎者猜猜是什麼</span>
+          </button>
+          <button class="gamecard ${homeGameType==='werewolf'?'on':''}" data-game="werewolf">
+            <span class="gc-emoji">🐺</span>
+            <span class="gc-title">狼人殺</span>
+            <span class="gc-desc">藏好身分，白天投票揭發狼人</span>
+          </button>
+          <button class="gamecard wide ${homeGameType==='avalon'?'on':''}" data-game="avalon">
+            <span class="gc-emoji">🗡️</span>
+            <span class="gc-title">阿瓦隆</span>
+            <span class="gc-desc">隱藏陣營，組隊出任務，找出邪惡爪牙</span>
           </button>
         </div>
       ` : ``}
@@ -752,6 +929,8 @@ function renderHome(){
     <p class="helper">${homeTab==='create'
       ? (homeGameType==='mostlikely' ? '2 人以上就能玩，猜猜大家心裡最可能是誰。'
         : homeGameType==='draw' ? '3 人以上更好玩，大家接力在畫布上畫畫，猜謎者最後猜猜是什麼。'
+        : homeGameType==='werewolf' ? '4 人以上才好玩，記得留一個人當主持人念流程也可以，但用手機會更順。'
+        : homeGameType==='avalon' ? '5～10 人，隱藏身分的組隊推理遊戲。'
         : '2 人以上就能玩，選到跟別人不一樣的人會被扣分。')
       : '輸入房號就能加入朋友的房間，遊戲類型由房主決定。'}</p>
   `;
@@ -787,16 +966,20 @@ function renderLobby(isHost){
   const gameType = roomData.gameType || "telepathy";
   const isML = gameType === "mostlikely";
   const isDraw = gameType === "draw";
-  const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : isDraw ? {turnSeconds:12, totalRounds:6} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
+  const isWolf = gameType === "werewolf";
+  const isAvalon = gameType === "avalon";
+  const settings = roomData.settings || (isML ? {duration:25, totalRounds:8} : isDraw ? {turnSeconds:12, totalRounds:6} : isWolf ? {roles:{seer:true, witch:false, hunter:false, guard:false}} : isAvalon ? {roles:{percival:true, morgana:true, mordred:false}} : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"});
   const enabledCats = new Set(settings.enabledCategories && settings.enabledCategories.length ? settings.enabledCategories : ALL_CATEGORY_IDS);
   const mode = settings.mode || "normal";
   const hostId = players.slice().sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.id;
   const readyCount = players.filter(p=>p.ready).length;
   const allReady = players.length>0 && players.every(p=>p.ready);
-  const canStart = players.length>=2 && allReady;
+  const minPlayers = isAvalon ? 5 : isWolf ? 4 : 2;
+  const maxPlayers = isAvalon ? 10 : Infinity;
+  const canStart = players.length>=minPlayers && players.length<=maxPlayers && allReady;
   const me = players.find(p=>p.id===identity.playerId);
   const myReady = !!(me && me.ready);
-  const gameLabel = isML ? '誰最可能' : isDraw ? '接力畫猜' : '心電感應';
+  const gameLabel = isML ? '誰最可能' : isDraw ? '接力畫猜' : isWolf ? '狼人殺' : isAvalon ? '阿瓦隆' : '心電感應';
   app.innerHTML = `
     <div class="card">
       <div class="badge purple">LOBBY · ${gameLabel}</div>
@@ -813,7 +996,7 @@ function renderLobby(isHost){
           const isMe = p.id===identity.playerId;
           const scoreSpan = isML
             ? `<span class="strikes">🎯 ${p.mlScore||0}</span>`
-            : isDraw ? `` : `<span class="strikes">${p.strikes||0}</span>`;
+            : (isDraw || isWolf || isAvalon) ? `` : `<span class="strikes">${p.strikes||0}</span>`;
           const rightSide = isMe
             ? `<button class="avatarpick" id="changeAvatarBtn">換頭像</button>`
             : (isHost
@@ -833,19 +1016,19 @@ function renderLobby(isHost){
     <div class="iconrow">
       <button class="iconbtn" id="openHelpBtn"><span class="iconbtn-emoji">❓</span><span>玩法</span></button>
       <button class="iconbtn" id="openSettingsBtn"><span class="iconbtn-emoji">⚙️</span><span>設定</span></button>
-      ${(isML || isDraw) ? `` : `<button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>`}
+      ${(isML || isDraw || isWolf || isAvalon) ? `` : `<button class="iconbtn" id="openBankBtn"><span class="iconbtn-emoji">📚</span><span>題庫</span></button>`}
       <button class="iconbtn" id="toggleSoundBtn"><span class="iconbtn-emoji">${soundEnabled?'🔊':'🔇'}</span><span>音效</span></button>
     </div>
 
     ${isHost ? `
       <div class="error">${esc(startError)}</div>
-      <button class="btn-primary" id="startBtn" ${canStart?'':'disabled'}>${canStart?'開始遊戲':(players.length<2?'至少需要 2 位玩家':`等待 ${players.length-readyCount} 人準備`)}</button>
+      <button class="btn-primary" id="startBtn" ${canStart?'':'disabled'}>${canStart?'開始遊戲':(players.length<minPlayers?`至少需要 ${minPlayers} 位玩家`:players.length>maxPlayers?`最多 ${maxPlayers} 位玩家`:`等待 ${players.length-readyCount} 人準備`)}</button>
     ` : `<p class="helper">等待房主 <b>${esc(players.find(p=>p.id===hostId)?.name||'')}</b> 開始遊戲…</p>`}
     <button class="btn-ghost" id="leaveBtn">離開房間</button>
 
-    ${settingsModalOpen ? (isML ? renderMLSettingsModal(isHost, settings) : isDraw ? renderDrawSettingsModal(isHost, settings) : renderSettingsModal(isHost, settings, enabledCats, mode)) : ``}
-    ${bankModalOpen && !isML && !isDraw ? renderBankModal() : ``}
-    ${helpModalOpen ? (isML ? renderMLHelpModal() : isDraw ? renderDrawHelpModal() : renderHelpModal()) : ``}
+    ${settingsModalOpen ? (isML ? renderMLSettingsModal(isHost, settings) : isDraw ? renderDrawSettingsModal(isHost, settings) : isWolf ? renderWerewolfSettingsModal(isHost, settings) : isAvalon ? renderAvalonSettingsModal(isHost, settings) : renderSettingsModal(isHost, settings, enabledCats, mode)) : ``}
+    ${bankModalOpen && !isML && !isDraw && !isWolf && !isAvalon ? renderBankModal() : ``}
+    ${helpModalOpen ? (isML ? renderMLHelpModal() : isDraw ? renderDrawHelpModal() : isWolf ? renderWerewolfHelpModal() : isAvalon ? renderAvalonHelpModal() : renderHelpModal()) : ``}
   `;
   document.getElementById("copyBtn").onclick = ()=>{ navigator.clipboard && navigator.clipboard.writeText(identity.code).catch(()=>{}); };
   document.getElementById("shareBtn").onclick = ()=>{
@@ -885,11 +1068,11 @@ function renderLobby(isHost){
   const openBankBtn = document.getElementById("openBankBtn");
   if(openBankBtn) openBankBtn.onclick = ()=>{ bankModalOpen = true; render(); };
   if(isHost){
-    document.getElementById("startBtn").onclick = isML ? doStartML : isDraw ? doStartDraw : doStartGame;
+    document.getElementById("startBtn").onclick = isML ? doStartML : isDraw ? doStartDraw : isWolf ? doStartWerewolf : isAvalon ? doStartAvalon : doStartGame;
   }
-  if(settingsModalOpen){ if(isML) wireMLSettingsModal(isHost, settings); else if(isDraw) wireDrawSettingsModal(isHost, settings); else wireSettingsModal(isHost, settings); }
-  if(bankModalOpen && !isML && !isDraw) wireQuestionBank();
-  if(helpModalOpen){ if(isML) wireMLHelpModal(); else if(isDraw) wireDrawHelpModal(); else wireHelpModal(); }
+  if(settingsModalOpen){ if(isML) wireMLSettingsModal(isHost, settings); else if(isDraw) wireDrawSettingsModal(isHost, settings); else if(isWolf) wireWerewolfSettingsModal(isHost, settings); else if(isAvalon) wireAvalonSettingsModal(isHost, settings); else wireSettingsModal(isHost, settings); }
+  if(bankModalOpen && !isML && !isDraw && !isWolf && !isAvalon) wireQuestionBank();
+  if(helpModalOpen){ if(isML) wireMLHelpModal(); else if(isDraw) wireDrawHelpModal(); else if(isWolf) wireWerewolfHelpModal(); else if(isAvalon) wireAvalonHelpModal(); else wireHelpModal(); }
 }
 let lobbyAvatarPickOpen = false;
 
@@ -1167,6 +1350,162 @@ function wireDrawSettingsModal(isHost, settings){
   const totalRounds = settings.totalRounds || 6;
   document.getElementById("roundsMinus").onclick = ()=> updateSettings({totalRounds: Math.max(2, totalRounds-1)});
   document.getElementById("roundsPlus").onclick = ()=> updateSettings({totalRounds: Math.min(15, totalRounds+1)});
+}
+
+function renderWerewolfHelpModal(){
+  return `
+    <div class="modalbackdrop" id="helpBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>❓ 玩法說明</h2>
+          <button class="modalclose" id="helpClose">✕</button>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--safe);">目標</div>
+          <p class="helper" style="text-align:left; margin:0;">每個人會拿到一個隱藏身分：狼人、村民，或是房主開啟的特殊角色。狼人每晚要淘汰一位好人，好人要在白天用討論跟投票找出所有狼人。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--accent);">夜晚</div>
+          <p class="helper" style="text-align:left; margin:0;">依序輪到醫生、狼人、預言家、女巫行動（只有開啟的角色才會輪到），其他人這時候手機上只會看到「夜深了」的等待畫面，記得閉眼安靜等待，不要偷看別人手機。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--warn);">白天</div>
+          <p class="helper" style="text-align:left; margin:0;">公布晚上死了誰之後，大家開嘴巴討論、指控、辯論，最後一起投票淘汰一位嫌疑最大的人（平票就沒有人被淘汰）。</p>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <div class="helptitle">結束</div>
+          <p class="helper" style="text-align:left; margin:0;">狼人全部被淘汰，好人陣營勝利；狼人數量到達或超過好人數量，狼人陣營勝利。這款遊戲沒有真正的登入驗證，「隱藏身分」單純是畫面上不顯示給別人看，請大家憑默契不要偷看別人手機喔！</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireWerewolfHelpModal(){
+  const helpClose = document.getElementById("helpClose");
+  if(helpClose) helpClose.onclick = ()=>{ helpModalOpen = false; render(); };
+  const helpBackdrop = document.getElementById("helpBackdrop");
+  if(helpBackdrop) helpBackdrop.onclick = (e)=>{ if(e.target.id==="helpBackdrop"){ helpModalOpen = false; render(); } };
+}
+
+const WEREWOLF_ROLE_DEFS = [
+  {id:"seer", label:"預言家"},
+  {id:"witch", label:"女巫"},
+  {id:"hunter", label:"獵人"},
+  {id:"guard", label:"醫生"}
+];
+function renderWerewolfSettingsModal(isHost, settings){
+  const rolesSettings = settings.roles || {seer:true, witch:false, hunter:false, guard:false};
+  const wolfCount = computeWolfCount(playersData.length);
+  return `
+    <div class="modalbackdrop" id="settingsBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>⚙️ 遊戲設定</h2>
+          <button class="modalclose" id="settingsClose">✕</button>
+        </div>
+        <div class="settingsrow" style="border-top:none;">
+          <span>狼人人數（依人數自動算）</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${wolfCount} 人</span>
+        </div>
+        <div style="padding-top:12px; border-top:1px solid var(--line); margin-top:2px;">
+          <span style="font-size:14px; font-weight:700; display:block; margin-bottom:10px;">開啟的特殊角色（可多選）</span>
+          <div class="catchips">
+            ${WEREWOLF_ROLE_DEFS.map(r=>`<button class="catchip ${rolesSettings[r.id]?'on':''}" data-role="${r.id}" ${isHost?'':'disabled'}>${esc(r.label)}</button>`).join("")}
+          </div>
+          ${!isHost ? `<p class="helper" style="margin:16px 0 0;">只有房主可以調整這些設定。</p>` : ``}
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireWerewolfSettingsModal(isHost, settings){
+  document.getElementById("settingsClose").onclick = ()=>{ settingsModalOpen = false; render(); };
+  document.getElementById("settingsBackdrop").onclick = (e)=>{ if(e.target.id==="settingsBackdrop"){ settingsModalOpen = false; render(); } };
+  if(!isHost) return;
+  const rolesSettings = settings.roles || {seer:true, witch:false, hunter:false, guard:false};
+  document.querySelectorAll("[data-role]").forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.dataset.role;
+      updateSettings({roles: Object.assign({}, rolesSettings, {[id]: !rolesSettings[id]})});
+    };
+  });
+}
+
+function renderAvalonHelpModal(){
+  return `
+    <div class="modalbackdrop" id="helpBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>❓ 玩法說明</h2>
+          <button class="modalclose" id="helpClose">✕</button>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--safe);">目標</div>
+          <p class="helper" style="text-align:left; margin:0;">5～10 人分成好人與壞人兩個陣營。好人要成功完成 3 次任務；壞人要讓 3 次任務失敗，或在最後刺殺梅林。每個人手機上會看到自己的隱藏身分。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--accent);">一輪流程</div>
+          <p class="helper" style="text-align:left; margin:0;">① 隊長挑選本輪任務的隊員。② 全員投票同意或反對（同意票要嚴格多於反對票才通過，平票視為否決）。③ 通過後，隊員各自秘密出「成功」或「失敗」（好人只能出成功），只公開失敗票有幾張。隊長依加入順序輪流，連續 5 次組隊被否決，壞人直接獲勝。</p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle" style="color:var(--warn);">特殊規則</div>
+          <p class="helper" style="text-align:left; margin:0;">7 人以上時，第 4 輪任務要 2 張失敗票才算失敗，其餘輪次 1 張即失敗。房主可以開關派西維爾、莫甘娜、莫德雷德；梅林與刺客一定存在。</p>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <div class="helptitle">結束</div>
+          <p class="helper" style="text-align:left; margin:0;">任務失敗滿 3 次，壞人勝利；任務成功滿 3 次，刺客可以指認梅林，指對則壞人逆轉獲勝，指錯則好人勝利。這款遊戲沒有真正的登入驗證，「隱藏身分」單純是畫面上不顯示給別人看，請大家憑默契不要偷看別人手機喔！</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireAvalonHelpModal(){
+  const helpClose = document.getElementById("helpClose");
+  if(helpClose) helpClose.onclick = ()=>{ helpModalOpen = false; render(); };
+  const helpBackdrop = document.getElementById("helpBackdrop");
+  if(helpBackdrop) helpBackdrop.onclick = (e)=>{ if(e.target.id==="helpBackdrop"){ helpModalOpen = false; render(); } };
+}
+
+const AVALON_ROLE_DEFS = [
+  {id:"percival", label:"派西維爾"},
+  {id:"morgana", label:"莫甘娜"},
+  {id:"mordred", label:"莫德雷德"}
+];
+function renderAvalonSettingsModal(isHost, settings){
+  const rolesSettings = settings.roles || {percival:true, morgana:true, mordred:false};
+  const n = playersData.length;
+  const counts = (n>=5 && n<=10) ? AVALON_FACTION_COUNTS[n] : null;
+  return `
+    <div class="modalbackdrop" id="settingsBackdrop">
+      <div class="modalsheet">
+        <div class="modalhead">
+          <h2>⚙️ 遊戲設定</h2>
+          <button class="modalclose" id="settingsClose">✕</button>
+        </div>
+        <div class="settingsrow" style="border-top:none;">
+          <span>陣營人數（依人數自動算）</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${counts ? `好 ${counts.good} / 壞 ${counts.evil}` : '需 5～10 人'}</span>
+        </div>
+        <div style="padding-top:12px; border-top:1px solid var(--line); margin-top:2px;">
+          <span style="font-size:14px; font-weight:700; display:block; margin-bottom:10px;">開啟的特殊角色（梅林、刺客一定存在）</span>
+          <div class="catchips">
+            ${AVALON_ROLE_DEFS.map(r=>`<button class="catchip ${rolesSettings[r.id]?'on':''}" data-role="${r.id}" ${isHost?'':'disabled'}>${esc(r.label)}</button>`).join("")}
+          </div>
+          ${!isHost ? `<p class="helper" style="margin:16px 0 0;">只有房主可以調整這些設定。</p>` : ``}
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wireAvalonSettingsModal(isHost, settings){
+  document.getElementById("settingsClose").onclick = ()=>{ settingsModalOpen = false; render(); };
+  document.getElementById("settingsBackdrop").onclick = (e)=>{ if(e.target.id==="settingsBackdrop"){ settingsModalOpen = false; render(); } };
+  if(!isHost) return;
+  const rolesSettings = settings.roles || {percival:true, morgana:true, mordred:false};
+  document.querySelectorAll("[data-role]").forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.dataset.role;
+      updateSettings({roles: Object.assign({}, rolesSettings, {[id]: !rolesSettings[id]})});
+    };
+  });
 }
 
 function renderBankModal(){
@@ -1976,6 +2315,622 @@ function renderDrawEnded(isHost){
   document.getElementById("leaveBtn").onclick = doLeave;
 }
 
+// ---------- 狼人殺：畫面 ----------
+
+// 遊戲開始後才加入（或重新整理進來卻沒被分配角色）的人，看到這個畫面，等這局結束再一起玩下一局。
+function renderWerewolfNoRole(){
+  app.innerHTML = `
+    <div class="card" style="text-align:center;">
+      <p>遊戲已經開始，請等待這局結束</p>
+    </div>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+// 夜晚每個步驟給「不是本步驟行動者」的人看的等待文字，配合當前 nightStep 換字。
+const WEREWOLF_NIGHT_WAIT_TEXT = {
+  guard:"🌙 夜深了，醫生正在行動…",
+  wolf:"🌙 夜深了，狼人正在行動…",
+  seer:"🌙 夜深了，預言家正在行動…",
+  witch:"🌙 夜深了，女巫正在行動…"
+};
+let witchPoisonPickOpen = false;
+
+function renderWerewolfNight(me, isHost){
+  const step = roomData.nightStep;
+  const roles = roomData.roles || {};
+  const myRole = roles[identity.playerId];
+  const alivePlayers = playersData.filter(p=>p.alive!==false);
+  const iAmAlive = me.alive!==false;
+
+  if(step==="guard" && myRole==="guard" && iAmAlive){
+    app.innerHTML = `
+      <div class="card">
+        <div class="badge purple">🛡️ 醫生時刻 · 第 ${roomData.round} 夜</div>
+        <p class="helper" style="margin-top:-4px;">選一位玩家守護，被你守護的人今晚不會被狼人殺死。你也可以守護自己。</p>
+        <div class="pickgrid">
+          ${alivePlayers.map(p=>`<button class="pickbtn" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}${p.id===identity.playerId?' <span class="you">YOU</span>':''}</button>`).join("")}
+        </div>
+      </div>
+      <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    `;
+    document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=> doGuardPick(b.dataset.pick));
+    document.getElementById("leaveBtn").onclick = doLeave;
+    return;
+  }
+
+  if(step==="wolf" && myRole==="wolf" && iAmAlive){
+    const wolfVotes = roomData.wolfVotes || {};
+    const myPick = wolfVotes[identity.playerId];
+    app.innerHTML = `
+      <div class="card">
+        <div class="badge purple">🐺 狼人時刻 · 第 ${roomData.round} 夜</div>
+        ${myPick==null ? `
+          <p class="helper" style="margin-top:-4px;">選一位玩家襲擊。</p>
+          <div class="pickgrid">
+            ${alivePlayers.map(p=>`<button class="pickbtn" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}${p.id===identity.playerId?' <span class="you">YOU</span>':''}</button>`).join("")}
+          </div>
+        ` : `
+          <p class="helper" style="margin-top:-4px;">已送出，等待其他狼人…</p>
+          <div class="pickgrid">
+            ${alivePlayers.map(p=>`<button class="pickbtn ${p.id===myPick?'picked':''}" disabled>${avatarOf(p)} ${esc(p.name)}${p.id===identity.playerId?' <span class="you">YOU</span>':''}</button>`).join("")}
+          </div>
+        `}
+      </div>
+      <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    `;
+    if(myPick==null) document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=> doWolfVote(b.dataset.pick));
+    document.getElementById("leaveBtn").onclick = doLeave;
+    return;
+  }
+
+  if(step==="seer" && myRole==="seer" && iAmAlive){
+    const others = alivePlayers.filter(p=>p.id!==identity.playerId);
+    const result = roomData.seerResult;
+    const checkedP = result ? playersData.find(p=>p.id===result.target) : null;
+    app.innerHTML = `
+      <div class="card">
+        <div class="badge purple">🔮 預言家時刻 · 第 ${roomData.round} 夜</div>
+        ${!result ? `
+          <p class="helper" style="margin-top:-4px;">選一位玩家查驗身分。</p>
+          <div class="pickgrid">
+            ${others.map(p=>`<button class="pickbtn" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}</button>`).join("")}
+          </div>
+        ` : `
+          <p class="helper" style="margin-top:-4px;">${checkedP?avatarOf(checkedP):'🙂'} ${esc(checkedP?checkedP.name:'?')} 的身分是：</p>
+          <div class="qtext" style="font-size:22px;">${result.isWolf ? '🐺 是狼人' : '😇 不是狼人'}</div>
+        `}
+      </div>
+      <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    `;
+    if(!result) document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=> doSeerCheck(b.dataset.pick));
+    document.getElementById("leaveBtn").onclick = doLeave;
+    return;
+  }
+
+  if(step==="witch" && myRole==="witch" && iAmAlive){
+    const wolfTarget = roomData.wolfTarget;
+    const targetP = wolfTarget ? playersData.find(p=>p.id===wolfTarget) : null;
+    const canSave = !roomData.witchSaveUsed && wolfTarget!=null;
+    const canPoison = !roomData.witchPoisonUsed;
+    app.innerHTML = `
+      <div class="card">
+        <div class="badge purple">🧪 女巫時刻 · 第 ${roomData.round} 夜</div>
+        <p class="helper" style="margin-top:-4px;">${targetP ? `今晚狼人選擇襲擊 ${avatarOf(targetP)} ${esc(targetP.name)}` : '今晚狼人沒有動手'}</p>
+        <div class="stack" style="margin-top:10px;">
+          ${canSave ? `<button class="btn-secondary" id="witchSaveBtn">救</button>` : ``}
+          ${canPoison ? `<button class="btn-secondary" id="witchPoisonBtn">毒</button>` : ``}
+          <button class="btn-secondary" id="witchPassBtn">跳過</button>
+        </div>
+        ${witchPoisonPickOpen ? `
+          <p class="helper" style="margin:10px 0 4px;">選一位玩家下毒：</p>
+          <div class="pickgrid">
+            ${alivePlayers.filter(p=>p.id!==identity.playerId).map(p=>`<button class="pickbtn" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}</button>`).join("")}
+          </div>
+        ` : ``}
+      </div>
+      <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    `;
+    const saveBtn = document.getElementById("witchSaveBtn");
+    if(saveBtn) saveBtn.onclick = ()=> doWitchAct("save", null);
+    const poisonBtn = document.getElementById("witchPoisonBtn");
+    if(poisonBtn) poisonBtn.onclick = ()=>{ witchPoisonPickOpen = true; render(); };
+    document.getElementById("witchPassBtn").onclick = ()=> doWitchAct("pass", null);
+    if(witchPoisonPickOpen){
+      document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=>{ witchPoisonPickOpen = false; doWitchAct("poison", b.dataset.pick); });
+    }
+    document.getElementById("leaveBtn").onclick = doLeave;
+    return;
+  }
+
+  // 不是這一步驟行動者的人（包含已死亡的人），看到跟目前 nightStep 對應的通用等待畫面。
+  const waitText = WEREWOLF_NIGHT_WAIT_TEXT[step] || "🌙 夜深了…";
+  app.innerHTML = `
+    <div class="card" style="text-align:center;">
+      <div class="badge purple">🌙 第 ${roomData.round} 夜</div>
+      <p class="helper" style="margin-top:10px;">${waitText}</p>
+    </div>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderWerewolfHunterShoot(me, isHost){
+  const queue = roomData.hunterQueue || [];
+  const isMe = queue[0] === identity.playerId;
+  if(!isMe){
+    app.innerHTML = `
+      <div class="card" style="text-align:center;">
+        <div class="badge red">🔫 獵人時刻</div>
+        <p class="helper" style="margin-top:10px;">🔫 獵人正在做最後的反擊…</p>
+      </div>
+      <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    `;
+    document.getElementById("leaveBtn").onclick = doLeave;
+    return;
+  }
+  const alive = playersData.filter(p=>p.alive!==false && p.id!==identity.playerId);
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">🔫 你被淘汰了，開最後一槍</div>
+      <p class="helper" style="margin-top:-4px;">選一位玩家一起帶走，或選擇不開槍。</p>
+      <div class="pickgrid">
+        ${alive.map(p=>`<button class="pickbtn" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}</button>`).join("")}
+      </div>
+      <button class="btn-secondary" id="skipShootBtn" style="margin-top:10px;">不開槍</button>
+    </div>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=> doHunterShoot(b.dataset.pick));
+  document.getElementById("skipShootBtn").onclick = ()=> doHunterShoot(null);
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderWerewolfDayDeaths(isHost){
+  const deaths = roomData.nightDeaths || [];
+  const roles = roomData.roles || {};
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">☀️ 天亮了</div>
+      ${deaths.length ? `
+        <ul class="playerlist">
+          ${deaths.map(id=>{
+            const p = playersData.find(pp=>pp.id===id);
+            return `<li><span class="pname">${p?avatarOf(p):'🙂'} ${esc(p?p.name:'?')}</span><span class="cattag">${esc(ROLE_LABEL[roles[id]]||'村民')}</span></li>`;
+          }).join("")}
+        </ul>
+      ` : `<p class="helper" style="margin-top:10px;">平安夜，沒有人死亡</p>`}
+    </div>
+    ${isHost ? `<button class="btn-primary" id="startDiscussBtn">開始討論</button>` : `<p class="helper">等待房主開始討論</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(isHost) document.getElementById("startDiscussBtn").onclick = doStartDiscuss;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderWerewolfDiscuss(isHost){
+  const alive = playersData.filter(p=>p.alive!==false);
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge purple">💬 討論時間</div>
+      <p class="helper" style="margin-top:-4px;">大家open嘴巴討論、指控、辯論吧！</p>
+      <ul class="playerlist">
+        ${alive.map(p=>`<li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span></li>`).join("")}
+      </ul>
+    </div>
+    ${isHost ? `<button class="btn-primary" id="startVoteBtn">開始投票</button>` : `<p class="helper">等待房主開始投票</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(isHost) document.getElementById("startVoteBtn").onclick = doStartVote;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderWerewolfVote(me, isHost){
+  if(me.alive===false){
+    app.innerHTML = `
+      <div class="card" style="text-align:center;">
+        <div class="badge red">🗳️ 投票中</div>
+        <p class="helper" style="margin-top:10px;">你已經死亡，等待遊戲結束</p>
+      </div>
+      <button class="btn-ghost" id="leaveBtn">離開房間</button>
+    `;
+    document.getElementById("leaveBtn").onclick = doLeave;
+    return;
+  }
+  const voteTally = roomData.voteTally || {};
+  const myVote = voteTally[identity.playerId];
+  const alive = playersData.filter(p=>p.alive!==false);
+  const votedCount = alive.filter(p=> voteTally[p.id]!=null).length;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">🗳️ 投票淘汰</div>
+      <p class="helper" style="margin-top:-4px;">已投票 ${votedCount}/${alive.length}</p>
+      ${myVote==null ? `
+        <div class="pickgrid">
+          ${alive.map(p=>`<button class="pickbtn" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}${p.id===identity.playerId?' <span class="you">YOU</span>':''}</button>`).join("")}
+        </div>
+        <button class="btn-secondary" id="abstainBtn" style="margin-top:10px;">棄票</button>
+      ` : `<p class="helper" style="margin-top:14px;">✅ 已送出，等待其他人…</p>`}
+    </div>
+    ${isHost ? `<button class="btn-secondary" id="forceVoteBtn" style="margin-top:10px;">強制結束投票</button>` : ``}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(myVote==null){
+    document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=> doVoteCast(b.dataset.pick));
+    document.getElementById("abstainBtn").onclick = ()=> doVoteCast(null);
+  }
+  if(isHost) document.getElementById("forceVoteBtn").onclick = doForceEndVote;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderWerewolfVoteResult(isHost){
+  const result = roomData.voteResult || {};
+  const roles = roomData.roles || {};
+  const eliminated = result.eliminatedId ? playersData.find(p=>p.id===result.eliminatedId) : null;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">🗳️ 投票結果</div>
+      ${eliminated ? `
+        <ul class="playerlist">
+          <li><span class="pname">${avatarOf(eliminated)} ${esc(eliminated.name)}</span><span class="cattag">${esc(ROLE_LABEL[roles[eliminated.id]]||'村民')}</span></li>
+        </ul>
+      ` : `<p class="helper" style="margin-top:10px;">投票結果平票，沒有人被淘汰</p>`}
+    </div>
+    ${isHost ? `<button class="btn-primary" id="nextNightBtn">進入下一個夜晚</button>` : `<p class="helper">等待房主繼續</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(isHost) document.getElementById("nextNightBtn").onclick = doNextNight;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderWerewolfEnded(isHost){
+  const winner = roomData.winner;
+  const roles = roomData.roles || {};
+  const isWolfWin = winner==="wolf";
+  app.innerHTML = `
+    <div class="${isWolfWin?'losebanner':'winbanner'}">
+      <h2>${isWolfWin?'🐺 狼人陣營勝利！':'😇 好人陣營勝利！'}</h2>
+      <p>遊戲結束，公開所有人的身分</p>
+    </div>
+    <div class="card">
+      <label>身分公開</label>
+      <ul class="playerlist">
+        ${playersData.map(p=>`
+          <li><span class="pname">${p.alive===false?'💀':'🙂'} ${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="cattag">${esc(ROLE_LABEL[roles[p.id]]||'村民')}</span></li>
+        `).join("")}
+      </ul>
+    </div>
+    ${isHost ? `<button class="btn-primary" id="rematchBtn">再玩一局</button>` : `<p class="helper">等待房主開始下一局</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(isHost) document.getElementById("rematchBtn").onclick = doRematchWerewolf;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+// ---------- 阿瓦隆：畫面 ----------
+
+// 遊戲開始後才加入（或重新整理進來卻沒被分配角色）的人，看到這個畫面，等這局結束再一起玩下一局。
+function renderAvalonNoRole(){
+  app.innerHTML = `
+    <div class="card" style="text-align:center;">
+      <p>遊戲已經開始，請等待這局結束</p>
+    </div>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function avalonN(){ return avalonClampN(Object.keys(roomData.roles||{}).length); }
+function avalonName(id){
+  const p = playersData.find(pp=>pp.id===id);
+  return p ? `${avatarOf(p)} ${esc(p.name)}` : "🙂 ?";
+}
+// 這局有角色的玩家（遊戲開始後才加入的人不算）。
+function avalonPlayers(){
+  const roles = roomData.roles || {};
+  return playersData.filter(p=>roles[p.id]);
+}
+
+// 我的身分 + 夜晚情報（揭示畫面與「查看我的身分」共用）。
+function avalonRoleInfoHtml(){
+  const roles = roomData.roles || {};
+  const my = roles[identity.playerId];
+  const info = avalonNightInfo(roles, identity.playerId, playersData.map(p=>p.id));
+  const rows = info.ids.filter(id=>playersData.some(p=>p.id===id));
+  let infoHtml = "";
+  if(info.kind==="evil"){
+    infoHtml = rows.length
+      ? `<label>你的邪惡夥伴</label><ul class="playerlist">${rows.map(id=>`<li><span class="pname">${avalonName(id)}</span><span class="cattag">壞人</span></li>`).join("")}</ul>`
+      : `<p class="helper" style="text-align:left;">你沒有其他邪惡夥伴。</p>`;
+  } else if(info.kind==="merlin"){
+    infoHtml = `<label>你看到的壞人（莫德雷德看不到）</label><ul class="playerlist">${rows.map(id=>`<li><span class="pname">${avalonName(id)}</span><span class="cattag">壞人</span></li>`).join("")}</ul>`;
+  } else if(info.kind==="percival"){
+    infoHtml = `<label>你看到的人</label><ul class="playerlist">${rows.map(id=>`<li><span class="pname">${avalonName(id)}</span><span class="cattag">梅林或莫甘娜</span></li>`).join("")}</ul>`;
+  } else {
+    infoHtml = `<p class="helper" style="text-align:left;">你沒有任何額外情報。</p>`;
+  }
+  return `
+    <div class="qtext" style="font-size:24px; margin:8px 0;">${esc(AVALON_ROLE_LABEL[my]||'⚔️ 忠臣')}</div>
+    <p class="helper" style="text-align:left; margin:0 0 10px;">${esc(AVALON_ROLE_DESC[my]||'')}</p>
+    ${infoHtml}
+  `;
+}
+
+// 遊戲中途隨時可以展開看自己的身分，預設收起來，避免旁邊的人偷看。
+function avalonFooterHtml(){
+  return `
+    ${avalonPeek ? `<div class="card" style="margin-top:12px;">${avalonRoleInfoHtml()}</div>` : ``}
+    <button class="btn-secondary" id="avPeekBtn" style="margin-top:10px;">${avalonPeek?'🙈 隱藏我的身分':'👁 查看我的身分'}</button>
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+}
+function wireAvalonFooter(){
+  const peekBtn = document.getElementById("avPeekBtn");
+  if(peekBtn) peekBtn.onclick = ()=>{ avalonPeek = !avalonPeek; render(); };
+  const leaveBtn = document.getElementById("leaveBtn");
+  if(leaveBtn) leaveBtn.onclick = doLeave;
+}
+
+// 5 個任務圓圈（成功/失敗/目前這輪/尚未進行的隊伍人數）+ 連續否決計數。
+function renderAvalonTracker(){
+  const n = avalonN();
+  const results = roomData.missionResults || [];
+  const missionNo = roomData.missionNo || 1;
+  const rc = Math.max(0, Math.min(5, roomData.rejectCount || 0));
+  const dots = [1,2,3,4,5].map(i=>{
+    const r = results[i-1];
+    if(r) return `<div class="avdot ${r.ok?'ok':'bad'}">${r.ok?'✓':'✗'}</div>`;
+    const size = avalonTeamSize(n, i) + (avalonFailsNeeded(n, i)===2 ? '*' : '');
+    return `<div class="avdot ${(i===missionNo && roomData.phase!=='ended')?'cur':''}">${size}</div>`;
+  }).join("");
+  return `
+    <div class="avtracker">
+      <div class="avdots">${dots}</div>
+      <div class="avreject">否決 ${"●".repeat(rc)}${"○".repeat(5-rc)}</div>
+    </div>
+  `;
+}
+
+function renderAvalonReveal(me, isHost){
+  const acks = roomData.acks || {};
+  const myAck = !!acks[identity.playerId];
+  const ap = avalonPlayers();
+  const ackCount = ap.filter(p=>acks[p.id]).length;
+  const allAcked = ap.length>0 && ackCount===ap.length;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge purple">🗡️ 你的身分</div>
+      ${avalonRoleInfoHtml()}
+      ${myAck ? `<p class="helper" style="margin-top:14px;">✅ 已確認，等待其他人… ${ackCount}/${ap.length}</p>` : `<button class="btn-primary" id="ackBtn" style="margin-top:14px;">我記住了</button>`}
+    </div>
+    ${isHost ? `<button class="btn-secondary" id="beginBtn" style="margin-top:10px;">${allAcked?'全員就緒，開始任務':`直接開始任務（已確認 ${ackCount}/${ap.length}）`}</button>` : ``}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(!myAck) document.getElementById("ackBtn").onclick = doAvalonAck;
+  if(isHost) document.getElementById("beginBtn").onclick = doAvalonBegin;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
+function renderAvalonTeam(me, isHost){
+  const n = avalonN();
+  const missionNo = roomData.missionNo || 1;
+  const size = avalonTeamSize(n, missionNo);
+  const need = avalonFailsNeeded(n, missionNo);
+  const leaderId = roomData.leaderId;
+  const leaderHere = avalonPlayers().some(p=>p.id===leaderId);
+  const isLeader = leaderId === identity.playerId;
+  const key = `team-${missionNo}-${roomData.rejectCount||0}-${leaderId}`;
+  if(avalonPickKey!==key){ avalonPickKey = key; avalonPickDraft = []; }
+  avalonPickDraft = avalonPickDraft.filter(id=>avalonPlayers().some(p=>p.id===id));
+  const picked = avalonPickDraft;
+  const canSubmit = picked.length===size;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge purple">第 ${missionNo} 輪任務</div>
+      ${renderAvalonTracker()}
+      <p class="helper" style="margin:0 0 8px; text-align:left;">本輪需要 <b>${size}</b> 人出任務${need===2?'（需要 2 張失敗票才算失敗）':''}。隊長：${leaderHere?avalonName(leaderId):'（已離開）'}</p>
+      ${isLeader ? `
+        <p class="helper" style="margin:0 0 8px; text-align:left;">你是隊長，選出 ${size} 位隊員（可以選自己）。已選 ${picked.length}/${size}</p>
+        <div class="pickgrid">
+          ${avalonPlayers().map(p=>`<button class="pickbtn ${picked.includes(p.id)?'picked':''}" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}${p.id===identity.playerId?' <span class="you">YOU</span>':''}</button>`).join("")}
+        </div>
+        <button class="btn-primary" id="proposeBtn" style="margin-top:12px;" ${canSubmit?'':'disabled'}>送出隊伍，開始投票</button>
+      ` : `<p class="helper" style="margin-top:10px;">⏳ 等待隊長挑選隊員…</p>`}
+    </div>
+    ${(!leaderHere && isHost) ? `<button class="btn-secondary" id="skipLeaderBtn" style="margin-top:10px;">隊長已離開，換下一位隊長</button>` : ``}
+    ${avalonFooterHtml()}
+  `;
+  if(isLeader){
+    document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=>{
+      const id = b.dataset.pick;
+      if(avalonPickDraft.includes(id)) avalonPickDraft = avalonPickDraft.filter(x=>x!==id);
+      else if(avalonPickDraft.length<size) avalonPickDraft = [...avalonPickDraft, id];
+      render();
+    });
+    document.getElementById("proposeBtn").onclick = doProposeTeam;
+  }
+  const skipBtn = document.getElementById("skipLeaderBtn");
+  if(skipBtn) skipBtn.onclick = doAvalonSkipLeader;
+  wireAvalonFooter();
+}
+
+function renderAvalonVote(me, isHost){
+  const votes = roomData.teamVotes || {};
+  const myVote = votes[identity.playerId];
+  const team = roomData.teamSelection || [];
+  const ap = avalonPlayers();
+  const votedCount = ap.filter(p=>votes[p.id]!=null).length;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">🗳️ 組隊投票</div>
+      ${renderAvalonTracker()}
+      <p class="helper" style="margin:0 0 8px; text-align:left;">隊長 ${avalonName(roomData.leaderId)} 提議的隊伍：</p>
+      <ul class="playerlist">
+        ${team.map(id=>`<li><span class="pname">${avalonName(id)}</span></li>`).join("")}
+      </ul>
+      <p class="helper" style="margin:10px 0 0;">已投票 ${votedCount}/${ap.length}（全員投完才會公開）</p>
+      ${myVote==null ? `
+        <button class="btn-primary" id="approveBtn" style="margin-top:12px;">👍 同意</button>
+        <button class="btn-secondary" id="rejectBtn" style="margin-top:10px;">👎 反對</button>
+      ` : `<p class="helper" style="margin-top:14px;">✅ 你投了${myVote==="approve"?'同意':'反對'}，等待其他人…</p>`}
+    </div>
+    ${avalonFooterHtml()}
+  `;
+  if(myVote==null){
+    document.getElementById("approveBtn").onclick = ()=> doTeamVote("approve");
+    document.getElementById("rejectBtn").onclick = ()=> doTeamVote("reject");
+  }
+  wireAvalonFooter();
+}
+
+function renderAvalonVoteResult(isHost){
+  const votes = roomData.teamVotes || {};
+  const t = avalonTally(votes);
+  const rc = roomData.rejectCount || 0;
+  const team = roomData.teamSelection || [];
+  const btnLabel = t.approved ? '出發執行任務' : (rc>=5 ? '查看結果' : '換下一位隊長');
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge ${t.approved?'green':'red'}">🗳️ 投票結果</div>
+      ${renderAvalonTracker()}
+      <div class="qtext" style="font-size:22px; margin:6px 0;">${t.approved?'✅ 隊伍通過':'❌ 隊伍被否決'}（👍 ${t.approve} : 👎 ${t.reject}）</div>
+      <p class="helper" style="margin:0 0 8px; text-align:left;">提議的隊伍：${team.map(id=>avalonName(id)).join("、")}</p>
+      <ul class="playerlist">
+        ${avalonPlayers().map(p=>`<li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="cattag">${votes[p.id]==="approve"?'👍 同意':(votes[p.id]==="reject"?'👎 反對':'—')}</span></li>`).join("")}
+      </ul>
+      ${(!t.approved && rc>=5) ? `<p class="helper" style="margin-top:10px;">已經連續 5 次組隊被否決！</p>` : ``}
+    </div>
+    ${isHost ? `<button class="btn-primary" id="continueBtn">${btnLabel}</button>` : `<p class="helper">等待房主繼續</p>`}
+    ${avalonFooterHtml()}
+  `;
+  if(isHost) document.getElementById("continueBtn").onclick = doAvalonContinueVote;
+  wireAvalonFooter();
+}
+
+function renderAvalonMission(me, isHost){
+  const team = roomData.teamSelection || [];
+  const mv = roomData.missionVotes || {};
+  const isMember = team.includes(identity.playerId);
+  const myCard = mv[identity.playerId];
+  const myRole = (roomData.roles||{})[identity.playerId];
+  const evil = isEvilRole(myRole);
+  const doneCount = team.filter(id=>mv[id]!=null).length;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge purple">⚔️ 執行任務</div>
+      ${renderAvalonTracker()}
+      <p class="helper" style="margin:0 0 8px; text-align:left;">出任務的隊員：</p>
+      <ul class="playerlist">
+        ${team.map(id=>`<li><span class="pname">${avalonName(id)} ${id===identity.playerId?'<span class="you">YOU</span>':''}</span></li>`).join("")}
+      </ul>
+      ${isMember ? (myCard==null ? `
+        <p class="helper" style="margin:10px 0 0;">秘密選擇任務結果${evil?'':'（好人只能選成功）'}：</p>
+        <button class="btn-primary" id="successBtn" style="margin-top:10px;">✅ 任務成功</button>
+        ${evil ? `<button class="btn-secondary" id="failBtn" style="margin-top:10px;">❌ 任務失敗</button>` : ``}
+      ` : `<p class="helper" style="margin-top:14px;">✅ 已送出，等待其他隊員…（${doneCount}/${team.length}）</p>`)
+      : `<p class="helper" style="margin-top:14px;">⏳ 隊員正在執行任務…（${doneCount}/${team.length}）</p>`}
+    </div>
+    ${avalonFooterHtml()}
+  `;
+  if(isMember && myCard==null){
+    document.getElementById("successBtn").onclick = ()=> doMissionCard("success");
+    const failBtn = document.getElementById("failBtn");
+    if(failBtn) failBtn.onclick = ()=> doMissionCard("fail");
+  }
+  wireAvalonFooter();
+}
+
+function renderAvalonMissionResult(isHost){
+  const results = roomData.missionResults || [];
+  const last = results[results.length-1] || {ok:true, fails:0};
+  const wins = results.filter(r=>r.ok).length;
+  const losses = results.length - wins;
+  const fails = roomData.lastMissionFails != null ? roomData.lastMissionFails : last.fails;
+  const btnLabel = losses>=3 ? '查看結果' : (wins>=3 ? '進入刺殺階段' : '下一輪任務');
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge ${last.ok?'green':'red'}">📜 任務結果</div>
+      ${renderAvalonTracker()}
+      <div class="qtext" style="font-size:24px; margin:6px 0;">${last.ok?'✅ 任務成功':'❌ 任務失敗'}</div>
+      <p class="helper" style="margin:0; text-align:left;">本輪出現 <b>${fails}</b> 張失敗票。目前好人 ${wins} 勝 / 壞人 ${losses} 勝。</p>
+    </div>
+    ${isHost ? `<button class="btn-primary" id="continueBtn">${btnLabel}</button>` : `<p class="helper">等待房主繼續</p>`}
+    ${avalonFooterHtml()}
+  `;
+  if(isHost) document.getElementById("continueBtn").onclick = doAvalonContinueMission;
+  wireAvalonFooter();
+}
+
+function renderAvalonAssassin(me, isHost){
+  const roles = roomData.roles || {};
+  const isAssassin = roles[identity.playerId]==="assassin";
+  if(!isAssassin){
+    app.innerHTML = `
+      <div class="card" style="text-align:center;">
+        <div class="badge red">🗡️ 刺殺時刻</div>
+        ${renderAvalonTracker()}
+        <p class="helper" style="margin-top:10px;">好人完成了 3 次任務！刺客正在決定要刺殺誰…</p>
+      </div>
+      ${avalonFooterHtml()}
+    `;
+    wireAvalonFooter();
+    return;
+  }
+  if(avalonPickKey!=="assassin"){ avalonPickKey = "assassin"; avalonPickDraft = []; }
+  const candidates = playersData.filter(p=> roles[p.id] && !isEvilRole(roles[p.id]));
+  avalonPickDraft = avalonPickDraft.filter(id=>candidates.some(p=>p.id===id)).slice(0,1);
+  const picked = avalonPickDraft[0] || null;
+  app.innerHTML = `
+    <div class="card">
+      <div class="badge red">🗡️ 刺殺梅林</div>
+      ${renderAvalonTracker()}
+      <p class="helper" style="margin:0 0 8px; text-align:left;">好人完成了 3 次任務，你是刺客！選出你認為的梅林，刺中就能逆轉獲勝。</p>
+      <div class="pickgrid">
+        ${candidates.map(p=>`<button class="pickbtn ${picked===p.id?'picked':''}" data-pick="${p.id}">${avatarOf(p)} ${esc(p.name)}</button>`).join("")}
+      </div>
+      <button class="btn-primary" id="stabBtn" style="margin-top:12px;" ${picked?'':'disabled'}>確認刺殺</button>
+    </div>
+    ${avalonFooterHtml()}
+  `;
+  document.querySelectorAll("[data-pick]").forEach(b=> b.onclick = ()=>{ avalonPickDraft = [b.dataset.pick]; render(); });
+  document.getElementById("stabBtn").onclick = ()=>{ if(picked) doAssassinPick(picked); };
+  wireAvalonFooter();
+}
+
+const AVALON_WIN_REASON = {
+  reject5: "連續 5 次組隊被否決",
+  fail3: "3 次任務失敗",
+  assassinHit: "刺客刺中了梅林",
+  assassinMiss: "好人完成 3 次任務，刺客沒有找到梅林"
+};
+function renderAvalonEnded(isHost){
+  const winner = roomData.winner;
+  const roles = roomData.roles || {};
+  const isEvilWin = winner==="evil";
+  const target = roomData.assassinTarget;
+  app.innerHTML = `
+    <div class="${isEvilWin?'losebanner':'winbanner'}">
+      <h2>${isEvilWin?'🗡️ 邪惡陣營勝利！':'⚔️ 正義陣營勝利！'}</h2>
+      <p>${esc(AVALON_WIN_REASON[roomData.winReason]||'遊戲結束')}</p>
+    </div>
+    <div class="card">
+      ${renderAvalonTracker()}
+      ${target ? `<p class="helper" style="margin:0 0 8px; text-align:left;">刺客指認的對象：${avalonName(target)}（${esc(AVALON_ROLE_LABEL[roles[target]]||'')}）</p>` : ``}
+      <label>身分公開</label>
+      <ul class="playerlist">
+        ${playersData.map(p=>`
+          <li><span class="pname">${avatarOf(p)} ${esc(p.name)} ${p.id===identity.playerId?'<span class="you">YOU</span>':''}</span><span class="cattag">${esc(AVALON_ROLE_LABEL[roles[p.id]]||'（旁觀）')}</span></li>
+        `).join("")}
+      </ul>
+    </div>
+    ${isHost ? `<button class="btn-primary" id="rematchBtn">再玩一局</button>` : `<p class="helper">等待房主開始下一局</p>`}
+    <button class="btn-ghost" id="leaveBtn">離開房間</button>
+  `;
+  if(isHost) document.getElementById("rematchBtn").onclick = doRematchAvalon;
+  document.getElementById("leaveBtn").onclick = doLeave;
+}
+
 // ---------- data / actions ----------
 
 async function ensureDb(){
@@ -2018,11 +2973,15 @@ async function doCreate(){
     if(!snap.exists) break;
   }
   const pid = uid();
-  const gameType = homeGameType==='mostlikely' ? 'mostlikely' : (homeGameType==='draw' ? 'draw' : 'telepathy');
+  const gameType = homeGameType==='mostlikely' ? 'mostlikely' : (homeGameType==='draw' ? 'draw' : (homeGameType==='werewolf' ? 'werewolf' : (homeGameType==='avalon' ? 'avalon' : 'telepathy')));
   const settings = gameType==='mostlikely'
     ? {duration:25, totalRounds:8}
     : gameType==='draw'
     ? {turnSeconds:12, totalRounds:6}
+    : gameType==='werewolf'
+    ? {roles:{seer:true, witch:false, hunter:false, guard:false}}
+    : gameType==='avalon'
+    ? {roles:{percival:true, morgana:true, mordred:false}}
     : {duration:15, targetStrikes:3, enabledCategories:ALL_CATEGORY_IDS, mode:"normal"};
   try{
     await ref.set({
@@ -2030,6 +2989,11 @@ async function doCreate(){
       currentQuestion:null, currentPrompt:null, roundEndAt:null, revealLog:[], losers:[],
       usedQKeys:[], usedPromptIdx:[],
       currentGuesserId:null, usedGuesserIds:[], usedDrawPromptIdx:[], drawOrder:[], currentDrawerIndex:0, guesserGuess:null,
+      roles:{}, nightStep:null, guardTarget:null, wolfVotes:{}, wolfTarget:null, seerTarget:null, seerResult:null,
+      witchAction:null, witchPoisonTarget:null, witchSaveUsed:false, witchPoisonUsed:false,
+      nightDeaths:[], hunterQueue:[], hunterNextPhase:null, voteTally:{}, voteResult:null, winner:null,
+      acks:{}, leaderId:null, missionNo:0, missionResults:[], rejectCount:0, teamSelection:[], teamVotes:{}, missionVotes:{},
+      lastMissionFails:0, assassinTarget:null, winReason:null,
       createdAt: Date.now(), lastActivityAt: Date.now()
     });
     await ref.collection("players").doc(pid).set({ name, avatar:homeAvatar, joinedAt: Date.now(), strikes:0, mlScore:0, ready:false });
@@ -2081,6 +3045,7 @@ function connectRoom(){
   soundedRound = null;
   mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
   drawingInProgress = false; drawGuessInput = ""; strokesData = []; drawPromptAnimRound = null; drawPromptAnimating = false;
+  witchPoisonPickOpen = false;
   if(unsubRoom) unsubRoom();
   if(unsubPlayers) unsubPlayers();
   unsubRoom = roomRef.onSnapshot(snap=>{
@@ -2172,6 +3137,7 @@ function leaveToHome(){
   clearRevealTimers(); revealAnimRound = null; revealStage = 0;
   mlRevealAnimRound = null; mlRevealReady = false; mlSoundedRound = null; mlRankOrder = null; mlRankOrderRound = null;
   drawingInProgress = false; drawGuessInput = ""; strokesData = []; drawPromptAnimRound = null; drawPromptAnimating = false;
+  witchPoisonPickOpen = false;
   unsubRoom=unsubPlayers=unsubVotes=unsubStrokes=null; roomRef=playersCol=votesCol=strokesCol=null; roomData=null; playersData=[]; votesData=[];
   identity = null; saveIdentity(null);
   render();
@@ -2538,6 +3504,569 @@ async function doRematchML(){
     await clearAllVotes();
     await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({mlScore:0, ready:false})));
     await roomRef.update({phase:"lobby", round:0, currentPrompt:null, currentBaseId:null, roundEndAt:null, revealLog:[], usedPromptIdx:[], usedBaseIds:[], lastActivityAt: Date.now()});
+  }catch(e){}
+}
+
+// ---------- 狼人殺：資料 / 動作 ----------
+
+async function doStartWerewolf(){
+  const players = playersData;
+  if(players.length<4){ startError = "至少需要 4 位玩家才能開始狼人殺"; render(); return; }
+  if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
+  const settings = roomData.settings || {roles:{seer:true, witch:false, hunter:false, guard:false}};
+  const roles = assignWerewolfRoles(players, settings.roles);
+  startError = "";
+  try{
+    await Promise.all(players.map(p=> playersCol.doc(p.id).update({alive:true})));
+    const nStep = nextNightStep(null, settings.roles, roles, players);
+    await roomRef.update({
+      phase:"night", round:1, roles, nightStep: nStep,
+      guardTarget:null, wolfVotes:{}, wolfTarget:null, seerTarget:null, seerResult:null,
+      witchAction:null, witchPoisonTarget:null, witchSaveUsed:false, witchPoisonUsed:false,
+      nightDeaths:[], hunterQueue:[], hunterNextPhase:null, voteTally:{}, voteResult:null, winner:null,
+      lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function doGuardPick(targetId){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const settings = roomData.settings || {};
+    const roles = roomData.roles || {};
+    const nStep = nextNightStep("guard", settings.roles, roles, playersData);
+    if(nStep){
+      await roomRef.update({guardTarget: targetId, nightStep: nStep, lastActivityAt: Date.now()});
+    } else {
+      await roomRef.update({guardTarget: targetId, lastActivityAt: Date.now()});
+      await resolveNightDeaths();
+    }
+  }catch(e){}
+  voteBusy = false;
+}
+
+// 狼人投票是鎖保護的合併寫入：每隻狼投完都會檢查「活著的狼是不是都投了」，
+// 投完才計算最多票的目標（平票時採用「在 playersData 裡加入順序最早的那隻狼投的目標」當決勝）。
+async function doWolfVote(targetId){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="night" || fresh.data().nightStep!=="wolf"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const wolfVotes = Object.assign({}, fd.wolfVotes||{}, {[identity.playerId]: targetId});
+    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
+    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    const roles = fd.roles || {};
+    const aliveWolves = freshPlayers.filter(p=>p.alive!==false && roles[p.id]==="wolf");
+    const allVoted = aliveWolves.every(w=> wolfVotes[w.id]!=null);
+    if(!allVoted){
+      await roomRef.update({wolfVotes, lastActivityAt: Date.now()});
+      voteBusy = false;
+      return;
+    }
+    const orderedWolves = aliveWolves.slice().sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
+    const counts = {};
+    orderedWolves.forEach(w=>{ const t = wolfVotes[w.id]; counts[t] = (counts[t]||0)+1; });
+    let bestTarget = null, bestCount = -1;
+    orderedWolves.forEach(w=>{
+      const t = wolfVotes[w.id];
+      if(counts[t] > bestCount){ bestCount = counts[t]; bestTarget = t; }
+    });
+    const settings = fd.settings || {};
+    const nStep = nextNightStep("wolf", settings.roles, roles, freshPlayers);
+    const patch = {wolfVotes, wolfTarget: bestTarget, lastActivityAt: Date.now()};
+    if(nStep){
+      patch.nightStep = nStep;
+      await roomRef.update(patch);
+    } else {
+      await roomRef.update(patch);
+      await resolveNightDeaths();
+    }
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doSeerCheck(targetId){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const roles = roomData.roles || {};
+    const settings = roomData.settings || {};
+    const nStep = nextNightStep("seer", settings.roles, roles, playersData);
+    const patch = {seerTarget: targetId, seerResult: {target: targetId, isWolf: roles[targetId]==="wolf"}, lastActivityAt: Date.now()};
+    if(nStep){
+      patch.nightStep = nStep;
+      await roomRef.update(patch);
+    } else {
+      await roomRef.update(patch);
+      await resolveNightDeaths();
+    }
+  }catch(e){}
+  voteBusy = false;
+}
+
+// 女巫永遠是夜晚行動順序的最後一步，所以做完動作之後一定直接進結算，不用再算下一步。
+async function doWitchAct(action, targetId){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const patch = {witchAction: action, lastActivityAt: Date.now()};
+    if(action==="save") patch.witchSaveUsed = true;
+    if(action==="poison"){ patch.witchPoisonTarget = targetId; patch.witchPoisonUsed = true; }
+    await roomRef.update(patch);
+    await resolveNightDeaths();
+  }catch(e){}
+  voteBusy = false;
+}
+
+// 夜晚行動全部做完後結算死亡名單：醫生守到的人不會死、女巫救的人不會死，剩下才是真的死掉的人。
+async function resolveNightDeaths(){
+  if(resolveBusy) return;
+  resolveBusy = true;
+  try{
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(!lease.acquired){ resolveBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="night"){ resolveBusy=false; return; }
+    const fd = fresh.data();
+    const guardTarget = fd.guardTarget, wolfTarget = fd.wolfTarget;
+    const survivedByGuard = guardTarget!=null && guardTarget===wolfTarget;
+    const survivedByWitch = fd.witchAction==="save";
+    const wolfKilled = (wolfTarget && !survivedByGuard && !survivedByWitch) ? wolfTarget : null;
+    const poisonKilled = fd.witchAction==="poison" ? fd.witchPoisonTarget : null;
+    const deathsSet = new Set();
+    if(wolfKilled) deathsSet.add(wolfKilled);
+    if(poisonKilled) deathsSet.add(poisonKilled);
+    const nightDeaths = Array.from(deathsSet);
+    await Promise.all(nightDeaths.map(id=> playersCol.doc(id).update({alive:false})));
+    await finalizeDeaths(nightDeaths, "daydeaths");
+  }catch(e){}
+  resolveBusy = false;
+}
+
+// 淘汰名單裡如果有還沒開過槍的獵人，先讓獵人補一槍再繼續；沒有獵人就直接檢查有沒有人獲勝。
+async function finalizeDeaths(newDeathIds, nextPhaseIfNoWinner){
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    const fd = fresh && fresh.exists ? fresh.data() : {};
+    const roles = fd.roles || {};
+    const hunterQueue = newDeathIds.filter(id=> roles[id]==="hunter");
+    if(hunterQueue.length>0){
+      await roomRef.update({
+        nightDeaths: [...(fd.nightDeaths||[]), ...newDeathIds],
+        hunterQueue, hunterNextPhase: nextPhaseIfNoWinner, phase:"hunter", lastActivityAt: Date.now()
+      });
+    } else {
+      await checkWinAndAdvance(nextPhaseIfNoWinner, newDeathIds);
+    }
+  }catch(e){}
+}
+
+// 每次死人之後都重新用資料庫現場的玩家名單算一次雙方存活人數，判斷有沒有人贏了；
+// 沒人贏就照原本排定的下一個 phase 繼續。
+async function checkWinAndAdvance(nextPhase, newDeathIdsToAppend){
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    const fd = fresh && fresh.exists ? fresh.data() : {};
+    const roles = fd.roles || {};
+    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
+    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    const aliveWolves = freshPlayers.filter(p=>p.alive!==false && roles[p.id]==="wolf");
+    const aliveGood = freshPlayers.filter(p=>p.alive!==false && roles[p.id]!=="wolf");
+    const patch = {lastActivityAt: Date.now()};
+    if(newDeathIdsToAppend && newDeathIdsToAppend.length){
+      patch.nightDeaths = [...(fd.nightDeaths||[]), ...newDeathIdsToAppend];
+    }
+    if(aliveWolves.length===0){
+      patch.winner = "villager"; patch.phase = "ended";
+    } else if(aliveWolves.length >= aliveGood.length){
+      patch.winner = "wolf"; patch.phase = "ended";
+    } else {
+      patch.phase = nextPhase;
+    }
+    await roomRef.update(patch);
+  }catch(e){}
+}
+
+async function doHunterShoot(targetId){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="hunter"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    if((fd.hunterQueue||[])[0] !== identity.playerId){ voteBusy=false; return; }
+    let deaths = [];
+    if(targetId){
+      await playersCol.doc(targetId).update({alive:false});
+      deaths = [targetId];
+    }
+    const nightDeaths = [...(fd.nightDeaths||[]), ...deaths];
+    const hunterQueue = (fd.hunterQueue||[]).slice(1);
+    await roomRef.update({nightDeaths, hunterQueue, lastActivityAt: Date.now()});
+    if(hunterQueue.length===0){
+      await checkWinAndAdvance(fd.hunterNextPhase, []);
+    }
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doStartDiscuss(){
+  try{ await roomRef.update({phase:"discuss", lastActivityAt: Date.now()}); }catch(e){}
+}
+
+async function doStartVote(){
+  try{ await roomRef.update({voteTally:{}, voteResult:null, phase:"vote", lastActivityAt: Date.now()}); }catch(e){}
+}
+
+// 統計非棄票的票數，票數最高且唯一的目標才會被淘汰；平票（或大家都棄票）就沒有人被淘汰。
+async function resolveVoteWith(voteTally, alivePlayers){
+  const counts = {};
+  alivePlayers.forEach(p=>{
+    const t = voteTally[p.id];
+    if(t && t!=="abstain") counts[t] = (counts[t]||0)+1;
+  });
+  let maxCount = 0;
+  Object.keys(counts).forEach(id=>{ if(counts[id]>maxCount) maxCount = counts[id]; });
+  const topTargets = Object.keys(counts).filter(id=>counts[id]===maxCount);
+  const eliminatedId = (maxCount>0 && topTargets.length===1) ? topTargets[0] : null;
+  await roomRef.update({voteTally, voteResult: {eliminatedId, tally: counts}, phase:"voteresult", lastActivityAt: Date.now()});
+  let deaths = [];
+  if(eliminatedId){
+    await playersCol.doc(eliminatedId).update({alive:false});
+    deaths = [eliminatedId];
+  }
+  await finalizeDeaths(deaths, "voteresult");
+}
+
+async function doVoteCast(targetIdOrNull){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const voteTally = Object.assign({}, fd.voteTally||{}, {[identity.playerId]: targetIdOrNull==null ? "abstain" : targetIdOrNull});
+    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
+    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    const alive = freshPlayers.filter(p=>p.alive!==false);
+    const allVoted = alive.every(p=> voteTally[p.id]!=null);
+    if(!allVoted){
+      await roomRef.update({voteTally, lastActivityAt: Date.now()});
+      voteBusy = false;
+      return;
+    }
+    await resolveVoteWith(voteTally, alive);
+  }catch(e){}
+  voteBusy = false;
+}
+
+// 房主的「強制結束投票」：沒投的人當棄票處理，直接進結算，不用等所有人都投完。
+async function doForceEndVote(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
+    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    const alive = freshPlayers.filter(p=>p.alive!==false);
+    const voteTally = Object.assign({}, fd.voteTally||{});
+    alive.forEach(p=>{ if(voteTally[p.id]==null) voteTally[p.id] = "abstain"; });
+    await resolveVoteWith(voteTally, alive);
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doNextNight(){
+  try{
+    const settings = roomData.settings || {};
+    const roles = roomData.roles || {};
+    const freshPlayersSnap = await playersCol.get().catch(()=>({docs:[]}));
+    const freshPlayers = freshPlayersSnap.docs.map(dd=>({id:dd.id, ...dd.data()}));
+    const nStep = nextNightStep(null, settings.roles, roles, freshPlayers);
+    await roomRef.update({
+      guardTarget:null, wolfVotes:{}, wolfTarget:null, seerTarget:null, seerResult:null,
+      witchAction:null, witchPoisonTarget:null, nightDeaths:[],
+      round: (roomData.round||1)+1, phase:"night", nightStep: nStep, lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function doRematchWerewolf(){
+  try{
+    await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({alive:true, ready:false})));
+    await roomRef.update({
+      phase:"lobby", round:0, roles:{}, nightStep:null,
+      guardTarget:null, wolfVotes:{}, wolfTarget:null, seerTarget:null, seerResult:null,
+      witchAction:null, witchPoisonTarget:null, witchSaveUsed:false, witchPoisonUsed:false,
+      nightDeaths:[], hunterQueue:[], hunterNextPhase:null, voteTally:{}, voteResult:null, winner:null,
+      lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+// ---------- 阿瓦隆：資料 / 動作 ----------
+
+// 租約沒搶到就稍等再試幾次（租約有效 4 秒、不會主動釋放），多人同時按下時比較不會有人的選擇被吃掉。
+async function avalonLease(){
+  for(let i=0;i<5;i++){
+    const lease = await acquireLock(roomRef, identity.playerId, 4000).catch(()=>({acquired:false}));
+    if(lease && lease.acquired) return {acquired:true};
+    await new Promise(r=>setTimeout(r, 1000));
+  }
+  return {acquired:false};
+}
+// 只算這局有被分配角色的玩家（遊戲開始後才加入的人不算，不然會卡住等他投票）。
+async function avalonFreshPlayers(roles){
+  const snap = await playersCol.get().catch(()=>({docs:[]}));
+  return snap.docs.map(dd=>({id:dd.id, ...dd.data()})).filter(p=>!roles || roles[p.id]).sort((a,b)=>a.joinedAt-b.joinedAt);
+}
+
+async function doStartAvalon(){
+  const players = playersData;
+  if(players.length<5){ startError = "至少需要 5 位玩家才能開始阿瓦隆"; render(); return; }
+  if(players.length>10){ startError = "阿瓦隆最多 10 位玩家"; render(); return; }
+  if(!players.every(p=>p.ready)){ startError = "還有人沒按「我準備好了」，等他們準備好才能開始"; render(); return; }
+  const settings = roomData.settings || {roles:{percival:true, morgana:true, mordred:false}};
+  const roles = assignAvalonRoles(players, settings.roles);
+  const leaderId = players[Math.floor(Math.random()*players.length)].id;
+  startError = "";
+  avalonPickDraft = []; avalonPickKey = ""; avalonPeek = false;
+  try{
+    await roomRef.update({
+      phase:"reveal", round:1, roles, acks:{}, leaderId, missionNo:1, missionResults:[], rejectCount:0,
+      teamSelection:[], teamVotes:{}, missionVotes:{}, lastMissionFails:0, assassinTarget:null,
+      winner:null, winReason:null, lastActivityAt: Date.now()
+    });
+  }catch(e){}
+}
+
+async function doAvalonAck(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="reveal"){ voteBusy=false; return; }
+    const acks = Object.assign({}, fresh.data().acks||{}, {[identity.playerId]: true});
+    await roomRef.update({acks, lastActivityAt: Date.now()});
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doAvalonBegin(){
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="reveal") return;
+    await roomRef.update({phase:"team", teamSelection:[], teamVotes:{}, missionVotes:{}, lastActivityAt: Date.now()});
+  }catch(e){}
+}
+
+// 隊長離開後沒人能組隊，房主可以把隊長換給下一位。
+async function doAvalonSkipLeader(){
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="team") return;
+    const players = await avalonFreshPlayers(fresh.data().roles||{});
+    const ids = players.map(p=>p.id);
+    const cur = fresh.data().leaderId;
+    if(ids.includes(cur)) return;
+    await roomRef.update({leaderId: avalonNextLeader(ids, cur), lastActivityAt: Date.now()});
+  }catch(e){}
+}
+
+async function doProposeTeam(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="team"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    if(fd.leaderId !== identity.playerId){ voteBusy=false; return; }
+    const n = avalonClampN(Object.keys(fd.roles||{}).length);
+    const size = avalonTeamSize(n, fd.missionNo||1);
+    const sel = Array.from(new Set(avalonPickDraft));
+    const players = await avalonFreshPlayers(fd.roles||{});
+    if(sel.length!==size || !sel.every(id=>players.some(p=>p.id===id))){ voteBusy=false; return; }
+    await roomRef.update({phase:"vote", teamSelection: sel, teamVotes:{}, missionVotes:{}, lastActivityAt: Date.now()});
+    avalonPickDraft = []; avalonPickKey = "";
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doTeamVote(choice){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await avalonLease();
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    if((fd.teamVotes||{})[identity.playerId]!=null){ voteBusy=false; return; }
+    const teamVotes = Object.assign({}, fd.teamVotes||{}, {[identity.playerId]: choice==="approve" ? "approve" : "reject"});
+    const players = await avalonFreshPlayers(fd.roles||{});
+    const allVoted = players.every(p=> teamVotes[p.id]!=null);
+    await roomRef.update({teamVotes, lastActivityAt: Date.now()});
+    if(allVoted) await resolveTeamVote();
+  }catch(e){}
+  voteBusy = false;
+}
+
+// 全員投完後結算：同意票嚴格多於反對票才通過（平票否決）。被否決時連續否決數 +1，真正的下一步等房主按「繼續」。
+async function resolveTeamVote(){
+  if(resolveBusy) return;
+  resolveBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="vote"){ resolveBusy=false; return; }
+    const fd = fresh.data();
+    const players = await avalonFreshPlayers(fd.roles||{});
+    const votes = fd.teamVotes || {};
+    if(!players.every(p=> votes[p.id]!=null)){ resolveBusy=false; return; }
+    const t = avalonTally(votes);
+    const patch = {phase:"voteresult", lastActivityAt: Date.now()};
+    if(!t.approved) patch.rejectCount = (fd.rejectCount||0)+1;
+    await roomRef.update(patch);
+  }catch(e){}
+  resolveBusy = false;
+}
+
+async function doAvalonContinueVote(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="voteresult"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const t = avalonTally(fd.teamVotes);
+    if(t.approved){
+      await roomRef.update({phase:"mission", missionVotes:{}, rejectCount:0, lastActivityAt: Date.now()});
+    } else if((fd.rejectCount||0)>=5){
+      await roomRef.update({phase:"ended", winner:"evil", winReason:"reject5", lastActivityAt: Date.now()});
+    } else {
+      const players = await avalonFreshPlayers(fd.roles||{});
+      const leaderId = avalonNextLeader(players.map(p=>p.id), fd.leaderId);
+      await roomRef.update({phase:"team", leaderId, teamSelection:[], teamVotes:{}, missionVotes:{}, lastActivityAt: Date.now()});
+    }
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doMissionCard(card){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const lease = await avalonLease();
+    if(!lease.acquired){ voteBusy=false; return; }
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="mission"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const team = fd.teamSelection || [];
+    if(!team.includes(identity.playerId)){ voteBusy=false; return; }
+    if((fd.missionVotes||{})[identity.playerId]!=null){ voteBusy=false; return; }
+    // 好人只能出成功，就算畫面被改過也一樣。
+    const myCard = (card==="fail" && isEvilRole((fd.roles||{})[identity.playerId])) ? "fail" : "success";
+    const missionVotes = Object.assign({}, fd.missionVotes||{}, {[identity.playerId]: myCard});
+    const players = await avalonFreshPlayers(fd.roles||{});
+    const members = team.filter(id=>players.some(p=>p.id===id));
+    const allVoted = members.every(id=> missionVotes[id]!=null);
+    await roomRef.update({missionVotes, lastActivityAt: Date.now()});
+    if(allVoted) await resolveMission();
+  }catch(e){}
+  voteBusy = false;
+}
+
+// 所有隊員出完牌後結算：失敗票數達標（第 4 輪 7 人以上要 2 張）任務才失敗。
+async function resolveMission(){
+  if(resolveBusy) return;
+  resolveBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="mission"){ resolveBusy=false; return; }
+    const fd = fresh.data();
+    const players = await avalonFreshPlayers(fd.roles||{});
+    const team = fd.teamSelection || [];
+    const mv = fd.missionVotes || {};
+    const members = team.filter(id=>players.some(p=>p.id===id));
+    if(!members.every(id=> mv[id]!=null)){ resolveBusy=false; return; }
+    const missionNo = fd.missionNo || 1;
+    const prev = fd.missionResults || [];
+    if(prev.length>=missionNo){ resolveBusy=false; return; }
+    const fails = team.filter(id=> mv[id]==="fail").length;
+    const n = avalonClampN(Object.keys(fd.roles||{}).length);
+    const ok = fails < avalonFailsNeeded(n, missionNo);
+    await roomRef.update({
+      phase:"missionresult", missionResults:[...prev, {ok, fails}], lastMissionFails: fails, lastActivityAt: Date.now()
+    });
+  }catch(e){}
+  resolveBusy = false;
+}
+
+async function doAvalonContinueMission(){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="missionresult"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const results = fd.missionResults || [];
+    const wins = results.filter(r=>r.ok).length;
+    const losses = results.length - wins;
+    if(losses>=3){
+      await roomRef.update({phase:"ended", winner:"evil", winReason:"fail3", lastActivityAt: Date.now()});
+    } else if(wins>=3){
+      avalonPickDraft = []; avalonPickKey = "";
+      await roomRef.update({phase:"assassin", assassinTarget:null, lastActivityAt: Date.now()});
+    } else {
+      const players = await avalonFreshPlayers(fd.roles||{});
+      const leaderId = avalonNextLeader(players.map(p=>p.id), fd.leaderId);
+      await roomRef.update({
+        phase:"team", leaderId, missionNo:(fd.missionNo||1)+1, rejectCount:0,
+        teamSelection:[], teamVotes:{}, missionVotes:{}, lastActivityAt: Date.now()
+      });
+    }
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doAssassinPick(targetId){
+  if(voteBusy) return;
+  voteBusy = true;
+  try{
+    const fresh = await roomRef.get().catch(()=>null);
+    if(!fresh || !fresh.exists || fresh.data().phase!=="assassin"){ voteBusy=false; return; }
+    const fd = fresh.data();
+    const roles = fd.roles || {};
+    if(roles[identity.playerId]!=="assassin" || !roles[targetId]){ voteBusy=false; return; }
+    const hit = roles[targetId]==="merlin";
+    await roomRef.update({
+      assassinTarget: targetId, phase:"ended",
+      winner: hit ? "evil" : "good", winReason: hit ? "assassinHit" : "assassinMiss",
+      lastActivityAt: Date.now()
+    });
+  }catch(e){}
+  voteBusy = false;
+}
+
+async function doRematchAvalon(){
+  try{
+    avalonPickDraft = []; avalonPickKey = ""; avalonPeek = false;
+    await Promise.all(playersData.map(p=> playersCol.doc(p.id).update({ready:false})));
+    await roomRef.update({
+      phase:"lobby", round:0, roles:{}, acks:{}, leaderId:null, missionNo:0, missionResults:[], rejectCount:0,
+      teamSelection:[], teamVotes:{}, missionVotes:{}, lastMissionFails:0, assassinTarget:null,
+      winner:null, winReason:null, lastActivityAt: Date.now()
+    });
   }catch(e){}
 }
 
