@@ -40,7 +40,67 @@ const MOST_LIKELY_PROMPTS = [
   "最有可能是這群人裡最會賺錢的人",
   "最有可能被求婚會當場愣住的人",
   "最有可能默默觀察大家、其實什麼都知道的人",
-  "最有可能十年後變得完全不一樣的人"
+  "最有可能十年後變得完全不一樣的人",
+  "最有可能在電影院睡著的人",
+  "最有可能搭捷運坐過站的人",
+  "最有可能網購停不下來的人",
+  "最有可能把手機放進冰箱的人",
+  "最有可能在手搖飲店糾結很久的人",
+  "最有可能出國還在找台灣小吃的人",
+  "最有可能偷吃別人食物被抓到的人",
+  "最有可能一直說「再五分鐘」的人",
+  "最有可能在KTV唱到哭的人",
+  "最有可能忘記自己把東西放哪的人",
+  "最有可能收藏一堆沒在用的東西的人",
+  "最有可能聚餐時負責拍照卻自己沒入鏡的人",
+  "最有可能說要減肥卻半夜吃宵夜的人",
+  "最有可能在群組裡一直傳貼圖的人",
+  "最有可能迷路後走到完全不同地方的人",
+  "最有可能在海邊被浪打濕全身的人",
+  "最有可能在派對上帶頭玩遊戲的人",
+  "最有可能把冷氣開到超冷的人",
+  "最有可能追劇追到凌晨三點的人",
+  "最有可能被路人認錯成別人的人",
+  "最有可能早起爬山看日出的人",
+  "最有可能在生日當天哭出來的人",
+  "最有可能把錢花在不重要小東西上的人",
+  "最有可能在會議上突然冒出神點子的人",
+  "最有可能講冷笑話害全場尷尬的人",
+  "最有可能把行李塞爆的人",
+  "最有可能一個人吃完一整鍋火鍋的人",
+  "最有可能跟路邊的貓狗聊天的人",
+  "最有可能忘記關瓦斯或電器的人",
+  "最有可能考前一晚才開始認真的人",
+  "最有可能在朋友需要時第一個出現的人",
+  "最有可能看到蟑螂就大叫的人",
+  "最有可能自己煮出一桌好菜的人",
+  "最有可能突然去學一門冷門語言的人",
+  "最有可能玩遊戲時超級認真的人",
+  "最有可能生氣三秒就消氣的人",
+  "最有可能明明不會唱還一直點歌的人",
+  "最有可能變成網紅的人",
+  "最有可能蒐集最多朋友八卦的人",
+  "最有可能自己開店當老闆的人",
+  "最有可能在演唱會喊到沒聲音的人",
+  "最有可能接到詐騙電話還想跟對方聊天的人",
+  "最有可能一直換手機桌布的人",
+  "最有可能每天都喝手搖飲的人",
+  "最有可能把零食藏起來不給別人吃的人",
+  "最有可能在地震時最冷靜的人",
+  "最有可能當團長帶大家去旅行的人",
+  "最有可能在旅途中睡過整段車程的人",
+  "最有可能認真寫日記或手帳的人",
+  "最有可能被小朋友喜歡的人",
+  "最有可能走在路上突然自己笑出來的人",
+  "最有可能把便利商店集點集滿的人",
+  "最有可能一邊走路滑手機一邊撞到東西的人",
+  "最有可能提早一小時到集合地點的人",
+  "最有可能每一期都買樂透的人",
+  "最有可能聚會結束後留下來幫忙收拾的人",
+  "最有可能深夜突然想做蛋糕的人",
+  "最有可能把鹽和糖搞混的人",
+  "最有可能把家裡養成一整面植物牆的人",
+  "最有可能上班之餘還經營副業的人"
 ];
 // 用 usedIdx（這一局已經抽過的題目索引）排除重複，抽完整組才重新洗牌。
 function pickMLPrompt(usedIdx){
@@ -195,6 +255,7 @@ function startMLRevealAnim(round){
   clearRevealTimers();
   mlRevealAnimRound = round;
   mlRevealReady = false;
+  if(pgReducedMotion()){ mlRevealReady = true; return; }   // 減少動態：省略「揭曉中…」的停頓
   // 跟心電感應一樣，答題畫面切到結算畫面之間留一點停頓，不會覺得畫面在硬切。
   revealTimers.push(setTimeout(()=>{ mlRevealReady = true; render(); }, 700));
 }
@@ -206,9 +267,7 @@ function renderMLReveal(isHost){
   if(mlRevealAnimRound !== last.round) startMLRevealAnim(last.round);
   if(mlRevealReady && mlSoundedRound !== last.round){
     mlSoundedRound = last.round;
-    beep(700,90,"sine");
-    setTimeout(()=>beep(900,110,"sine"), 90);
-    vibrate(15);
+    cue("reveal");
   }
   const totalRounds = (roomData.settings && roomData.settings.totalRounds) || 8;
   const isLastRound = last.round >= totalRounds;
@@ -246,7 +305,7 @@ function renderMLReveal(isHost){
                 ${ranking.map((id,i)=>{
                   const pp = playersData.find(x=>x.id===id);
                   const match = baseRanking[i]===id;
-                  return `<span class="mlrankchip ${match?'match':''}">${pp?avatarOf(pp):'🙂'} ${esc(pp?pp.name:'?')}</span>`;
+                  return `<span class="mlrankchip ${match?'match':''}">${match?'✓ ':''}${pp?avatarOf(pp):'🙂'} ${esc(pp?pp.name:'?')}</span>`;
                 }).join("")}
               </div>` : `<p class="helper" style="margin:4px 0 0;">未完成排序</p>`}
             </div>`;

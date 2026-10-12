@@ -152,7 +152,7 @@ function renderJoHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -188,7 +188,7 @@ function renderJoSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         <div style="padding-top:4px;">
           <span style="font-size:14px; font-weight:700; display:block; margin-bottom:10px;">牌數（一局要玩幾張牌）</span>

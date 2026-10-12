@@ -63,6 +63,7 @@ function startRevealAnim(round){
   // 會在前一張還沒轉完時就疊上新的翻轉，看起來像在「搶拍」、一閃而過。
   // 這裡把起始停頓跟每張間隔都拉長到比動畫時間長一點，讓每張牌都轉完才翻下一張，
   // 同時也讓答題畫面切過來後有個喘息的瞬間，不會覺得畫面在硬切。
+  if(pgReducedMotion()){ revealStage = LETTERS.length; return; }   // 減少動態：不要一張一張翻，直接全部攤開
   const startDelay = 700;
   const stepDelay = 650;
   LETTERS.forEach((_,i)=>{
@@ -129,7 +130,7 @@ function renderReveal(isHost){
             <div class="flipcard-inner ${revealed?'flipped':''}">
               <div class="flipface front">${letter}</div>
               <div class="flipface back ${isStruck?'struck':''} ${(doneFlipping&&isStruck)?'struck-blink':''}">
-                <div class="tallyhead"><span class="opt">${letter}．${esc(opt)}</span><span class="cnt">${ids.length} 人</span></div>
+                <div class="tallyhead"><span class="opt">${letter}．${esc(opt)}</span><span class="cnt">${ids.length} 人${isStruck?' · ⚠ 扣分':''}</span></div>
                 <div class="tallynames">${chips || '沒有人選'}</div>
               </div>
             </div>

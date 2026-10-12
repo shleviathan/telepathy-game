@@ -139,7 +139,7 @@ async function writeOwnField(path, value, expectPhase){
 
 // 小提示（沒送出成功時叫使用者再按一次）。不依賴畫面重繪。
 let toastTimer = null;
-function showToast(msg){
+function showToast(msg, ms){
   try{
     let el = document.getElementById("syncToast");
     if(!el){
@@ -148,7 +148,7 @@ function showToast(msg){
     }
     el.textContent = msg; el.style.opacity = "1";
     if(toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>{ try{ el.style.opacity = "0"; }catch(e){} }, 2800);
+    toastTimer = setTimeout(()=>{ try{ el.style.opacity = "0"; }catch(e){} }, ms || 2800);
   }catch(e){}
 }
 const MSG_RETRY = "沒有送出成功，請再按一次";

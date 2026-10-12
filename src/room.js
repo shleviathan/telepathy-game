@@ -218,6 +218,7 @@ function leaveToHome(){
   witchPoisonPickOpen = false;
   unsubRoom=unsubPlayers=unsubVotes=unsubStrokes=null; roomRef=playersCol=votesCol=strokesCol=null; roomData=null; playersData=[]; votesData=[];
   identity = null; saveIdentity(null);
+  pgResetCue();
   render();
 }
 

@@ -60,4 +60,17 @@ echo "[6] 房間密碼測試"
 node tests/password.test.js dist/index.html standalone | tail -3 ; [ "${PIPESTATUS[0]}" = 0 ] && ok "standalone 房間密碼測試" || bad "standalone 房間密碼測試"
 node tests/password.test.js dist/artifact.html artifact | tail -3 ; [ "${PIPESTATUS[0]}" = 0 ] && ok "artifact 房間密碼測試" || bad "artifact 房間密碼測試"
 
+echo "[7] 體驗功能：提示音轉換偵測 / 戰績冪等與勝負 / 首次教學旗標 / 設定持久化（含 localStorage 丟例外）"
+node tests/ux.test.js dist/index.html dist/artifact.html | tail -2 ; [ "${PIPESTATUS[0]}" = 0 ] && ok "體驗功能測試（兩份輸出）" || bad "體驗功能測試"
+
+echo "[8] PWA 輸出：檔案清單 / manifest / sw.js 行為 / Artifact 版沒有任何 PWA 痕跡"
+node tests/pwa.test.js dist | tail -2 ; [ "${PIPESTATUS[0]}" = 0 ] && ok "PWA 輸出測試" || bad "PWA 輸出測試"
+node --check dist/sw.js && ok "sw.js 語法正確" || bad "sw.js 語法錯誤"
+python3 -c "import json;json.load(open('dist/manifest.webmanifest',encoding='utf-8'))" && ok "manifest 是合法 JSON" || bad "manifest 不是合法 JSON"
+grep -qiE 'manifest|serviceWorker|sw\.js|apple-touch|theme-color' dist/artifact.html && bad "artifact 出現 PWA 字樣" || ok "artifact 沒有 manifest / sw / PWA 字樣"
+grep -q 'rel="manifest"' dist/index.html && ok "standalone 有 manifest 連結" || bad "standalone 缺 manifest 連結"
+
+echo "[9] 內建內容庫：結構 / 重複 / 下限 / 舊項目凍結（只能尾端追加）/ 題庫補丁 V6（兩份輸出都跑）"
+node tests/content.test.js dist/index.html dist/artifact.html | tail -2 ; [ "${PIPESTATUS[0]}" = 0 ] && ok "內建內容庫測試（兩份輸出）" || bad "內建內容庫測試"
+
 [ $fail = 0 ] && echo "全部通過" || { echo "有項目失敗"; exit 1; }

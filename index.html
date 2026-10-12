@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>派對遊戲</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#eae3da" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#2a2521" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="派對遊戲">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&family=Orbitron:wght@600;800&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap">
 <style>
@@ -319,11 +328,51 @@ select{
 .hidden{display:none !important;}
 footer{text-align:center; font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:.05em;}
 .versionline{text-align:center; font-size:10px; color:var(--muted); opacity:.55; margin-top:4px; letter-spacing:.03em;}
+
+/* ---------- 體驗設定：頂端小按鈕 / 顯示設定 / 戰績 / 色盲友善 / 無障礙 ---------- */
+.mastctl{display:flex; justify-content:flex-end; gap:6px; margin:-12px 0 4px;}
+.mastbtn{width:34px; height:34px; padding:0; border-radius:10px; font-size:16px; line-height:1; background:var(--surface); border:1px solid var(--line); color:var(--ink); box-shadow:0 6px 14px -10px var(--shadow);}
+.seg{display:flex; gap:8px;}
+.seg .catchip{flex:1; text-align:center; padding:10px 0;}
+.pgrow{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.pgrow .pgdesc{font-size:13px; color:var(--muted); margin:2px 0 0; text-align:left;}
+.pgswitch{width:auto; min-width:64px; padding:8px 14px; border-radius:20px; font-size:13px; background:var(--surface-2); color:var(--muted); border:1.5px solid var(--line);}
+.pgswitch[aria-checked="true"]{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+.pgstat{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.pgstat .pgnums{font-family:"JetBrains Mono",monospace; font-size:12.5px; font-weight:700; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums;}
+.pgnote{font-size:12px; color:var(--muted); text-align:center; margin:10px 0 14px;}
+.pgdanger{color:var(--warn); border-color:var(--warn);}
+.helpgot{margin-top:14px;}
+/* 字體大小：整個畫面等比放大縮小（頁面用 px 排版，所以用 zoom） */
+html[data-fs="0"] body{zoom:.9;}
+html[data-fs="2"] body{zoom:1.18;}
+/* 鍵盤焦點 */
+button:focus-visible,[role="button"]:focus-visible,.tab:focus-visible,.cncard:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent); outline-offset:2px;}
+/* 色盲友善：機密代號的牌除了顏色，再加形狀記號與紋路 */
+.cnglyph{position:absolute; top:2px; left:5px; font-size:11px; line-height:1; font-weight:900; display:none;}
+html[data-cb="1"] .cnglyph{display:block;}
+html[data-cb="1"] .cncard.hint.red{background-image:repeating-linear-gradient(45deg, rgba(192,89,78,.34) 0 4px, transparent 4px 9px);}
+html[data-cb="1"] .cncard.hint.blue{background-image:radial-gradient(rgba(79,124,174,.5) 2.2px, transparent 2.6px); background-size:9px 9px;}
+html[data-cb="1"] .cncard.rev.red{background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.3) 0 4px, transparent 4px 9px);}
+html[data-cb="1"] .cncard.rev.blue{background-image:radial-gradient(rgba(255,255,255,.45) 2.2px, transparent 2.6px); background-size:9px 9px;}
+html[data-cb="1"] .cncard.rev.assassin .cnglyph,html[data-cb="1"] .cncard.hint.assassin .cnglyph{font-size:13px;}
+html[data-cb="1"] .cnpill.red::before{content:"▲ ";}
+html[data-cb="1"] .cnpill.blue::before{content:"● ";}
+/* 減少動態：關掉拉霸、閃爍、滑入等較長的動畫 */
+@media (prefers-reduced-motion: reduce){
+  .drawslot.spin,.drawslot.landed,.flipface.back.struck-blink,.toast{animation:none; transition:none;}
+  .drawslot.spin{filter:none;}
+  *{scroll-behavior:auto !important;}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="masthead">
+    <div class="mastctl">
+      <button class="mastbtn" id="pgSndBtn" aria-label="音效與震動：開" aria-pressed="true" title="音效">🔊</button>
+      <button class="mastbtn" id="pgDispBtn" aria-label="顯示設定" title="顯示設定">⚙️</button>
+    </div>
     <div class="kicker">FRIENDS · SYNC CHECK</div>
     <h1>派對遊戲</h1>
     <div class="sub">PLAY ALL DAY</div>
@@ -332,6 +381,7 @@ footer{text-align:center; font-size:11px; color:var(--muted); margin-top:8px; le
   <footer>每人各自用手機打開這個房間，一起考驗默契</footer>
   <div class="versionline" id="versionLine"></div>
 </div>
+<div id="pgOverlay"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -347,8 +397,8 @@ const firebaseConfig = {
 };
 
 // 系統版本號跟更新時間，改版時記得順手更新這兩個值，會顯示在頁面最下面那行小字。
-const APP_VERSION = "v4.5";
-const APP_UPDATED = "2026-10-06";
+const APP_VERSION = "v4.7";
+const APP_UPDATED = "2026-10-12";
 const CATEGORIES = [
   {id:"food", label:"飲食"},
   {id:"travel", label:"旅行"},
@@ -366,6 +416,349 @@ const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.id, c.label]));
 const ALL_CATEGORY_IDS = CATEGORIES.map(c=>c.id);
 const AVATARS = ["🦊","🐱","🐶","🐼","🐨","🐸","🦁","🐵","🐰","🐯","🦄","🐙","🦉","🐢","🐧","🦋","🐻","🐮","🐷","🦖"];
 function randomAvatar(){ return AVATARS[Math.floor(Math.random()*AVATARS.length)]; }
+
+// ---------- 體驗功能：設定（音效/字體/色盲）、提示音 cue、第一次玩的教學旗標、本機戰績 ----------
+// 全部只存在這支裝置的 localStorage；localStorage 不能用（隱私模式、被封鎖、Artifact 沙盒）時，
+// 每一項都退回「記憶體內」的值，功能照常、只是重新整理後不會記得。
+function pgLsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function pgLsSet(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ return false; } }
+function pgJson(s, fallback){ try{ const v = JSON.parse(s); return (v && typeof v==="object") ? v : fallback; }catch(e){ return fallback; } }
+
+const PG_FONT_LABELS = ["A−", "A", "A+"];
+function pgLoadSettings(){
+  let sound = pgLsGet("pg_sound");
+  if(sound===null) sound = pgLsGet("telepathySound");        // 舊版的 key，沿用使用者原本的選擇
+  const fs = parseInt(pgLsGet("pg_fontscale"), 10);
+  return { sound: sound!=="off", fs: (fs>=0 && fs<=2) ? fs : 1, cb: pgLsGet("pg_cb")==="1" };
+}
+let pgSettings = pgLoadSettings();
+let soundEnabled = pgSettings.sound;
+let audioCtx = null;
+
+function setSoundEnabled(v){
+  soundEnabled = !!v; pgSettings.sound = soundEnabled;
+  pgLsSet("pg_sound", soundEnabled ? "on" : "off");
+  pgSyncControls();
+}
+function pgSetFontScale(n){
+  n = Math.max(0, Math.min(2, n|0)); pgSettings.fs = n;
+  pgLsSet("pg_fontscale", String(n)); pgApplyDisplay();
+}
+function pgSetColorblind(on){
+  pgSettings.cb = !!on; pgLsSet("pg_cb", on ? "1" : "0"); pgApplyDisplay();
+}
+function pgApplyDisplay(){
+  try{
+    const el = document.documentElement;
+    el.setAttribute("data-fs", String(pgSettings.fs));
+    el.setAttribute("data-cb", pgSettings.cb ? "1" : "0");
+  }catch(e){}
+}
+function pgReducedMotion(){
+  try{ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }catch(e){ return false; }
+}
+function pgTabHidden(){
+  try{ return document.visibilityState==="hidden" || document.hidden===true; }catch(e){ return false; }
+}
+
+// ----- 聲音 / 震動 -----
+function pgGetAudio(){
+  try{
+    if(!audioCtx){
+      const C = window.AudioContext || window.webkitAudioContext;
+      if(!C) return null;
+      audioCtx = new C();
+    }
+    if(audioCtx.state !== "running") audioCtx.resume().catch(()=>{});
+    return audioCtx;
+  }catch(e){ return null; }
+}
+function beep(freq, durMs, type, delayMs){
+  if(!soundEnabled || pgTabHidden()) return;
+  try{
+    const ctx = pgGetAudio(); if(!ctx) return;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    const t0 = ctx.currentTime + (delayMs||0)/1000;
+    osc.type = type || "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.16, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + durMs/1000);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + durMs/1000);
+  }catch(e){}
+}
+function vibrate(pattern){
+  if(!soundEnabled) return;
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+// iOS / 部分瀏覽器要在「第一次使用者手勢」裡建立並啟動 AudioContext，之後才能自動發聲。
+function pgUnlockAudio(){
+  try{
+    if(audioCtx && audioCtx.state==="running") return;
+    const ctx = pgGetAudio(); if(!ctx) return;
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, 1, 22050);
+    src.connect(ctx.destination); src.start(0);
+  }catch(e){}
+}
+function pgInstallAudioUnlock(){
+  ["pointerdown", "touchend", "click", "keydown"].forEach(ev=>{ try{ document.addEventListener(ev, pgUnlockAudio, {passive:true}); }catch(e){} });
+}
+
+// 五種提示：turn 輪到你 / success 成功·贏 / fail 失敗·輸 / reveal 揭曉 / tick 輕點與倒數
+// tones: [頻率, 毫秒, 波形, 延遲毫秒]；vibHidden：分頁在背景時仍用震動提醒（只給「輪到你」）。
+const PG_CUES = {
+  turn:    {tones:[[784,90,"sine",0],[1047,130,"sine",110]], vib:[30,50,30], vibHidden:true},
+  success: {tones:[[660,90,"sine",0],[880,120,"sine",90]], vib:20},
+  fail:    {tones:[[220,200,"sawtooth",0],[165,260,"sawtooth",160]], vib:[40,40,40]},
+  reveal:  {tones:[[523,80,"triangle",0],[659,80,"triangle",80],[784,150,"triangle",160]], vib:[15,30,15]},
+  tick:    {tones:[[520,60,"sine",0]], vib:15}
+};
+let pgLastCueAt = {};
+// 回傳是否真的發出聲音。關閉音效、分頁在背景（不發聲）、同一種提示 400ms 內重複，都不會響。
+function cue(kind){
+  const def = PG_CUES[kind];
+  if(!def || !soundEnabled) return false;
+  const now = Date.now();
+  if(pgLastCueAt[kind] && now - pgLastCueAt[kind] < 400) return false;
+  pgLastCueAt[kind] = now;
+  if(pgTabHidden()){
+    if(def.vibHidden) vibrate(def.vib);
+    return false;
+  }
+  def.tones.forEach(t=> beep(t[0], t[1], t[2], t[3]));
+  vibrate(def.vib);
+  return true;
+}
+// 一次狀態更新可能同時觸發好幾種，只播最重要的那一個（結果 > 揭曉 > 輪到你）。
+function pgPlayCues(list){
+  if(list && list.length) cue(list[0]);
+}
+
+// ----- 狀態轉換偵測（純函式）-----
+// pgCueState 把「房間文件 + 玩家」壓成一個小物件：我現在要不要動作(turn)、是不是在揭曉畫面(reveal)、遊戲有沒有結束(end)。
+// 只有「前一個狀態 → 後一個狀態」的差異才會發出提示，所以同樣的快照重複進來（輪詢、重畫、重連）不會再響。
+function pgOutcome(rd, players, myId){
+  if(!rd || rd.phase!=="ended") return null;
+  const gt = rd.gameType || "telepathy";
+  const ps = players || [];
+  const me = ps.find(p=>p.id===myId);
+  if(!me) return null;
+  const roles = rd.roles || {};
+  if(gt==="telepathy"){
+    const loserIds = new Set((rd.losers||[]).map(l=>l.id));
+    const minStrikes = ps.length ? Math.min(...ps.map(p=>p.strikes||0)) : 0;
+    const win = !loserIds.has(myId) && (me.strikes||0)===minStrikes;
+    return {win, cue: loserIds.has(myId) ? "fail" : "success"};
+  }
+  if(gt==="mostlikely"){
+    const top = ps.reduce((m,p)=>Math.max(m, p.mlScore||0), 0);
+    const win = top>0 && (me.mlScore||0)===top;
+    return {win, cue: win ? "success" : "reveal"};
+  }
+  if(gt==="draw") return {win:null, cue:"success"};
+  if(gt==="werewolf"){
+    if(!roles[myId]) return null;
+    const win = (rd.winner==="wolf") === (roles[myId]==="wolf");
+    return {win, cue: win ? "success" : "fail"};
+  }
+  if(gt==="avalon"){
+    if(!roles[myId]) return null;
+    const win = (rd.winner==="evil") === isEvilRole(roles[myId]);
+    return {win, cue: win ? "success" : "fail"};
+  }
+  if(gt==="codenames"){
+    if(me.team!=="red" && me.team!=="blue") return null;
+    const win = me.team===rd.winner;
+    return {win, cue: win ? "success" : "fail"};
+  }
+  if(gt==="justone"){
+    const total = joTotal(rd.settings), score = rd.score||0;
+    const good = Math.round(score/total*13) >= 7;
+    return {win:null, score, total, cue: good ? "success" : "fail"};
+  }
+  return null;
+}
+
+function pgCueState(rd, players, myId){
+  if(!rd || !rd.exists || !myId) return null;
+  const ps = players || [];
+  const me = ps.find(p=>p.id===myId);
+  if(!me) return null;                      // 玩家資料還沒載入完：先不判斷，避免重新整理時誤報「輪到你」
+  const gt = rd.gameType || "telepathy", phase = rd.phase;
+  const st = {gt, phase, turn:null, reveal:null, end:null};
+  const roles = rd.roles || {};
+  if(phase==="ended"){ const o = pgOutcome(rd, ps, myId); st.end = o ? o : {win:null, cue:null}; return st; }
+  if(gt==="telepathy" || gt==="mostlikely"){
+    if(phase==="question") st.turn = "q|"+rd.round;
+  } else if(gt==="draw"){
+    const drawerId = (rd.drawOrder||[])[rd.currentDrawerIndex||0];
+    if(phase==="drawing" && drawerId===myId) st.turn = `d|${rd.round}|${rd.currentDrawerIndex||0}`;
+    else if(phase==="guessing" && rd.currentGuesserId===myId) st.turn = "g|"+rd.round;
+    else if(phase==="reveal") st.reveal = "r|"+rd.round;
+  } else if(gt==="werewolf"){
+    const role = roles[myId], alive = me.alive!==false;
+    if(phase==="night" && alive && role && rd.nightStep===role){
+      const acted = role==="wolf" && (rd.wolfVotes||{})[myId]!=null;
+      if(!acted) st.turn = `n|${rd.round}|${rd.nightStep}`;
+    } else if(phase==="hunter" && (rd.hunterQueue||[])[0]===myId) st.turn = `h|${rd.round}`;
+    else if(phase==="vote" && alive && role && (rd.voteTally||{})[myId]==null) st.turn = "v|"+rd.round;
+    else if(phase==="daydeaths") st.reveal = "dd|"+rd.round;
+    else if(phase==="voteresult") st.reveal = "vr|"+rd.round;
+  } else if(gt==="avalon"){
+    const role = roles[myId], mn = rd.missionNo||1, rc = rd.rejectCount||0;
+    if(!role){ /* 旁觀者：沒有提示 */ }
+    else if(phase==="reveal") st.reveal = "role";
+    else if(phase==="team" && rd.leaderId===myId) st.turn = `t|${mn}|${rc}|${myId}`;
+    else if(phase==="vote" && (rd.teamVotes||{})[myId]==null) st.turn = `v|${mn}|${rc}`;
+    else if(phase==="mission" && (rd.teamSelection||[]).includes(myId) && (rd.missionVotes||{})[myId]==null) st.turn = "m|"+mn;
+    else if(phase==="assassin" && role==="assassin") st.turn = "a";
+    else if(phase==="voteresult") st.reveal = `vr|${mn}|${rc}`;
+    else if(phase==="missionresult") st.reveal = `mr|${mn}`;
+  } else if(gt==="codenames"){
+    const team = me.team, sm = rd.spymasters || {};
+    if(team==="red" || team==="blue"){
+      const isSpy = sm[team]===myId, n = (rd.clueLog||[]).length;
+      if(phase==="clue" && rd.turnTeam===team && isSpy) st.turn = `c|${n}|${team}`;
+      else if(phase==="guess" && rd.turnTeam===team && !isSpy) st.turn = `g|${n}|${team}`;
+    }
+  } else if(gt==="justone"){
+    const eligible = rd.clueEligible || [], key = joKeyOf(rd);
+    if(phase==="clue" && eligible.includes(myId) && myId!==rd.guesserId && (rd.hints||{})[myId]==null) st.turn = "h|"+key;
+    else if(phase==="guess" && rd.guesserId===myId) st.turn = "g|"+key;
+    else if(phase==="result") st.reveal = "r|"+key;
+  }
+  return st;
+}
+function pgDiffCues(prev, next){
+  if(!prev || !next || prev.gt!==next.gt) return [];
+  const out = [];
+  if(next.end){
+    if(!prev.end && next.end.cue) out.push(next.end.cue);
+    return out;
+  }
+  if(next.reveal && next.reveal!==prev.reveal) out.push("reveal");
+  if(next.turn && next.turn!==prev.turn) out.push("turn");
+  return out;
+}
+let pgPrevCue = null, pgPrevCueRoom = "";
+// 每次狀態更新呼叫一次：第一次看到某個房間只記錄基準線（不響），之後只在「轉換」時回傳要播的提示。
+function pgCueTick(rd, players, myId, roomKey){
+  const next = pgCueState(rd, players, myId);
+  if(!next) return [];                       // 暫時沒資料（重連中）：保留基準線，不當成轉換
+  if(pgPrevCueRoom!==roomKey || !pgPrevCue){ pgPrevCueRoom = roomKey; pgPrevCue = next; return []; }
+  const cues = pgDiffCues(pgPrevCue, next);
+  pgPrevCue = next;
+  return cues;
+}
+function pgResetCue(){ pgPrevCue = null; pgPrevCueRoom = ""; pgCountdownKey = ""; }
+
+// 倒數最後 3 秒的輕點聲（每個整數秒只響一次）：只給「現在輪到我、還沒送出」的人。
+let pgCountdownKey = "";
+function pgCountdownTick(rd, myId, votes, remainSec){
+  if(!rd || (rd.phase!=="question" && rd.phase!=="drawing")) return false;
+  const sec = Math.ceil(remainSec);
+  if(!(remainSec>0) || sec>3) return false;
+  let mine = false;
+  if(rd.phase==="question") mine = !(votes||[]).some(v=>v.playerId===myId && v.round===rd.round);
+  else mine = (rd.drawOrder||[])[rd.currentDrawerIndex||0]===myId;
+  if(!mine) return false;
+  const key = `${rd.phase}|${rd.round}|${rd.currentDrawerIndex||0}|${sec}`;
+  if(key===pgCountdownKey) return false;
+  pgCountdownKey = key;
+  return true;
+}
+
+// ----- 第一次玩的玩法說明旗標（pg_seen_help = {gameType: true}）-----
+let pgHelpMem = {};
+function pgHelpMap(){
+  const raw = pgLsGet("pg_seen_help");
+  const m = raw ? pgJson(raw, null) : null;
+  return Object.assign({}, pgHelpMem, m || {});
+}
+function pgHelpSeen(gt){ return !!pgHelpMap()[gt]; }
+function pgMarkHelpSeen(gt){
+  pgHelpMem[gt] = true;
+  const m = pgHelpMap(); m[gt] = true;
+  pgLsSet("pg_seen_help", JSON.stringify(m));
+}
+let pgHelpAuto = false;     // 目前開著的玩法說明是自動跳出來的（按鈕文字不同）
+
+// ----- 本機戰績（pg_stats）-----
+const PG_GAMES = ["telepathy", "mostlikely", "draw", "werewolf", "avalon", "codenames", "justone"];
+const PG_GAME_INFO = {
+  telepathy:{icon:"🔮", name:"心電感應", wins:true},
+  mostlikely:{icon:"👑", name:"誰最可能", wins:true},
+  draw:{icon:"✏️", name:"接力畫猜", wins:false, note:"合作遊戲，沒有輸贏"},
+  werewolf:{icon:"🌙", name:"狼人殺", wins:true},
+  avalon:{icon:"🗡️", name:"阿瓦隆", wins:true},
+  codenames:{icon:"🔍", name:"機密代號", wins:true},
+  justone:{icon:"💡", name:"只有一個", wins:false, note:"合作遊戲，看最高分"}
+};
+let pgStatsMem = null;
+function pgStatsLoad(){
+  const raw = pgLsGet("pg_stats");
+  let s = raw ? pgJson(raw, null) : null;
+  if(!s) s = pgStatsMem ? JSON.parse(JSON.stringify(pgStatsMem)) : {};
+  if(!Array.isArray(s._seen)) s._seen = [];
+  return s;
+}
+function pgStatsSave(s){
+  pgStatsMem = JSON.parse(JSON.stringify(s));
+  pgLsSet("pg_stats", JSON.stringify(s));
+}
+function pgStatsClear(){
+  pgStatsMem = null;
+  pgLsSet("pg_stats", "{}");
+  try{ localStorage.removeItem("pg_stats"); }catch(e){}
+}
+function pgHash(str){
+  let h = 5381;
+  for(let i=0;i<str.length;i++) h = ((h<<5) + h + str.charCodeAt(i)) | 0;
+  return (h>>>0).toString(36);
+}
+// 同一個房間可以「再玩一局」，所以除了 房號+建立時間，還要加上這一局的內容指紋（角色、牌盤、牌堆、題目…），
+// 重新整理後算出來一樣的 key 不會重複記，下一局則不同。
+function pgGameKey(rd, code){
+  const sig = [
+    rd.roles ? JSON.stringify(rd.roles) : "", (rd.board||[]).map(c=>c.word).join(","), (rd.deck||[]).join(","),
+    (rd.usedQKeys||[]).join(","), (rd.usedDrawPromptIdx||[]).join(","), (rd.usedGuesserIds||[]).join(","),
+    rd.round||0, rd.winner||"", rd.score||0, rd.cardsUsed||0, (rd.revealLog||[]).length
+  ].join("|");
+  return [code, rd.createdAt||0, rd.gameType||"telepathy", pgHash(sig)].join("|");
+}
+// 轉換到「結束」時呼叫；同一局只會記一次。回傳是否真的記了。
+function pgRecordGame(rd, players, myId, code, nowMs){
+  if(!rd || rd.phase!=="ended") return false;
+  const out = pgOutcome(rd, players, myId);
+  if(!out) return false;                    // 旁觀者 / 沒有參與
+  const key = pgGameKey(rd, code);
+  const s = pgStatsLoad();
+  if(s._seen.indexOf(key)>=0) return false;
+  const gt = rd.gameType || "telepathy";
+  const g = s[gt] || {played:0, wins:0, lastPlayed:0};
+  g.played = (g.played||0) + 1;
+  if(out.win===true) g.wins = (g.wins||0) + 1;
+  g.lastPlayed = nowMs || Date.now();
+  if(gt==="justone" && out.total){
+    if(!g.best || out.score/out.total > g.best.score/g.best.total) g.best = {score:out.score, total:out.total};
+  }
+  s[gt] = g;
+  s._seen.push(key);
+  s._seen = s._seen.slice(-40);
+  pgStatsSave(s);
+  return true;
+}
+function pgStatsRows(){
+  const s = pgStatsLoad();
+  return PG_GAMES.map(gt=>{
+    const g = s[gt] || {played:0, wins:0, lastPlayed:0};
+    const info = PG_GAME_INFO[gt];
+    return {gt, icon:info.icon, name:info.name, tracksWins:info.wins, note:info.note||"",
+      played:g.played||0, wins:g.wins||0, lastPlayed:g.lastPlayed||0, best:g.best||null,
+      rate: (info.wins && g.played) ? Math.round((g.wins||0)/g.played*100) : null};
+  });
+}
 
 // ---------- 同步：鎖 / 在線狀態 / 房主 的純邏輯（不碰 DOM、不碰資料庫，方便單元測試） ----------
 
@@ -485,7 +878,67 @@ const MOST_LIKELY_PROMPTS = [
   "最有可能是這群人裡最會賺錢的人",
   "最有可能被求婚會當場愣住的人",
   "最有可能默默觀察大家、其實什麼都知道的人",
-  "最有可能十年後變得完全不一樣的人"
+  "最有可能十年後變得完全不一樣的人",
+  "最有可能在電影院睡著的人",
+  "最有可能搭捷運坐過站的人",
+  "最有可能網購停不下來的人",
+  "最有可能把手機放進冰箱的人",
+  "最有可能在手搖飲店糾結很久的人",
+  "最有可能出國還在找台灣小吃的人",
+  "最有可能偷吃別人食物被抓到的人",
+  "最有可能一直說「再五分鐘」的人",
+  "最有可能在KTV唱到哭的人",
+  "最有可能忘記自己把東西放哪的人",
+  "最有可能收藏一堆沒在用的東西的人",
+  "最有可能聚餐時負責拍照卻自己沒入鏡的人",
+  "最有可能說要減肥卻半夜吃宵夜的人",
+  "最有可能在群組裡一直傳貼圖的人",
+  "最有可能迷路後走到完全不同地方的人",
+  "最有可能在海邊被浪打濕全身的人",
+  "最有可能在派對上帶頭玩遊戲的人",
+  "最有可能把冷氣開到超冷的人",
+  "最有可能追劇追到凌晨三點的人",
+  "最有可能被路人認錯成別人的人",
+  "最有可能早起爬山看日出的人",
+  "最有可能在生日當天哭出來的人",
+  "最有可能把錢花在不重要小東西上的人",
+  "最有可能在會議上突然冒出神點子的人",
+  "最有可能講冷笑話害全場尷尬的人",
+  "最有可能把行李塞爆的人",
+  "最有可能一個人吃完一整鍋火鍋的人",
+  "最有可能跟路邊的貓狗聊天的人",
+  "最有可能忘記關瓦斯或電器的人",
+  "最有可能考前一晚才開始認真的人",
+  "最有可能在朋友需要時第一個出現的人",
+  "最有可能看到蟑螂就大叫的人",
+  "最有可能自己煮出一桌好菜的人",
+  "最有可能突然去學一門冷門語言的人",
+  "最有可能玩遊戲時超級認真的人",
+  "最有可能生氣三秒就消氣的人",
+  "最有可能明明不會唱還一直點歌的人",
+  "最有可能變成網紅的人",
+  "最有可能蒐集最多朋友八卦的人",
+  "最有可能自己開店當老闆的人",
+  "最有可能在演唱會喊到沒聲音的人",
+  "最有可能接到詐騙電話還想跟對方聊天的人",
+  "最有可能一直換手機桌布的人",
+  "最有可能每天都喝手搖飲的人",
+  "最有可能把零食藏起來不給別人吃的人",
+  "最有可能在地震時最冷靜的人",
+  "最有可能當團長帶大家去旅行的人",
+  "最有可能在旅途中睡過整段車程的人",
+  "最有可能認真寫日記或手帳的人",
+  "最有可能被小朋友喜歡的人",
+  "最有可能走在路上突然自己笑出來的人",
+  "最有可能把便利商店集點集滿的人",
+  "最有可能一邊走路滑手機一邊撞到東西的人",
+  "最有可能提早一小時到集合地點的人",
+  "最有可能每一期都買樂透的人",
+  "最有可能聚會結束後留下來幫忙收拾的人",
+  "最有可能深夜突然想做蛋糕的人",
+  "最有可能把鹽和糖搞混的人",
+  "最有可能把家裡養成一整面植物牆的人",
+  "最有可能上班之餘還經營副業的人"
 ];
 // 用 usedIdx（這一局已經抽過的題目索引）排除重複，抽完整組才重新洗牌。
 function pickMLPrompt(usedIdx){
@@ -518,21 +971,42 @@ const DRAW_SUBJECTS = [
   "美人魚","殭屍","外星人","國王","公主","消防員","太空人","企鵝","蜜蜂","老鼠",
   "老虎","猴子","長頸鹿","無尾熊","浣熊","狐狸","兔子","貓頭鷹","烏龜","章魚",
   "螃蟹","蝙蝠","袋鼠","北極熊","獅子","牛仔","騎士","吸血鬼","狼人","精靈",
-  "矮人","巨人","天使","魔法師","偵探","廚師","醫生","老師","郵差","警察"
+  "矮人","巨人","天使","魔法師","偵探","廚師","醫生","老師","郵差","警察",
+  "鴨子","青蛙","刺蝟","海豚","鯨魚","海馬","水母","鱷魚","駱駝","斑馬",
+  "河馬","犀牛","松鼠","綿羊","乳牛","公雞","鸚鵡","孔雀","蝸牛","蜘蛛",
+  "螞蟻","蝴蝶","海獺","樹懶","鴕鳥","火烈鳥","麋鹿","小豬","小雞","毛毛蟲",
+  "獨角獸","噴火龍","幽靈","雪人","木乃伊","稻草人","仙女","小丑","鳳凰","魔術師",
+  "護士","畫家","歌手","攝影師","園丁","理髮師","舞者","潛水員","登山客","小嬰兒",
+  "爺爺","奶奶","新娘","外送員","仙人掌","西瓜","香蕉","泡麵","珍珠奶茶","雞蛋",
+  "吐司","冰淇淋","熱氣球","冰箱","鬧鐘","雨傘","紙飛機"
 ];
 const DRAW_PLACES = [
   "廚房","月球","海底","沙漠","教室","電梯裡","游泳池","山頂","超市","動物園",
   "辦公室","地下室","遊樂園","叢林","火山口","機場","圖書館","婚禮現場","塞車的馬路上","外太空",
   "沙灘","雪山","溫泉","便利商店","電影院","百貨公司","菜市場","夜市","公園","溜冰場",
   "健身房","美容院","加油站","停車場","郵局","銀行","法院","醫院","消防局","警察局",
-  "墓地","城堡裡","地鐵站","火車上","飛機上","潛水艇裡","太空站","遊輪甲板上","馬戲團","足球場"
+  "墓地","城堡裡","地鐵站","火車上","飛機上","潛水艇裡","太空站","遊輪甲板上","馬戲團","足球場",
+  "浴室","客廳","臥室","陽台","屋頂上","樹上","樹屋裡","帳篷裡","雲端","彩虹上",
+  "冰箱裡","洗衣機裡","書包裡","行李箱裡","摩天輪上","旋轉木馬上","雲霄飛車上","鬼屋裡","海盜船上","冰山上",
+  "懸崖邊","瀑布下","洞穴裡","小島上","河邊","湖中央","稻田裡","果園","花園","牧場",
+  "水族館","植物園","博物館","美術館","音樂廳","舞台上","棒球場","籃球場","網球場","滑雪場",
+  "露營區","野餐墊上","公車上","捷運車廂裡","天橋上","十字路口","巷子裡","早餐店","咖啡廳","書店",
+  "理髮店","麵包店","花店","寵物店","網咖","KTV包廂","保健室","操場","禮堂","天空中",
+  "雲海裡","隕石上","烏雲上","大樹下","橋下","涼亭裡","浴缸裡"
 ];
 const DRAW_ACTIONS = [
   "跳舞","打噴嚏","吃火鍋","打電動","彈鋼琴","放風箏","刷牙","打籃球","修理東西","拍照",
   "逃跑","打瞌睡","唱卡拉OK","綁鞋帶","騎腳踏車","洗澡","打架","烤肉","滑雪","扮鬼臉",
   "跳繩","游泳","潛水","衝浪","滑板","溜滑梯","盪鞦韆","爬樹","野餐","露營",
   "釣魚","打排球","打羽球","踢足球","拳擊","舉重","做瑜珈","跑步","騎馬","划船",
-  "彈吉他","唱歌","跳芭蕾","變魔術","表演雜耍","吹泡泡","放煙火","親吻","打呼","哭泣"
+  "彈吉他","唱歌","跳芭蕾","變魔術","表演雜耍","吹泡泡","放煙火","親吻","打呼","哭泣",
+  "吃泡麵","喝珍珠奶茶","吃冰淇淋","啃西瓜","啃雞腿","煮泡麵","煎荷包蛋","烤吐司","切水果","洗碗",
+  "拖地","曬衣服","吹頭髮","剪頭髮","化妝","伸懶腰","打哈欠","大笑","睡覺","做夢",
+  "看電視","看書","寫作業","畫畫","玩捉迷藏","玩躲避球","打太極拳","打保齡球","打桌球","打高爾夫",
+  "丟飛盤","堆積木","堆雪人","蓋沙堡","挖寶","找東西","迷路","追公車","排隊","騎獨輪車",
+  "開車","划獨木舟","轉呼拉圈","拔河","賽跑","爬山","走鋼索","倒立","翻筋斗","玩溜溜球",
+  "講電話","自拍","直播","打字","開會","面試","拍手","揮手","鞠躬","許願",
+  "吹蠟燭","切蛋糕","拆禮物","包水餃","種花","澆花","餵魚","遛狗","餵鴿子","洗車"
 ];
 function pickDrawPrompt(usedKeys){
   const usedSet = new Set(usedKeys||[]);
@@ -796,12 +1270,57 @@ const CN_WORDS = [
   "地址","名字","號碼","密碼","答案","問題","秘密","謎語","故事","歌曲","詩","笑話",
   "遊戲","比賽","冠軍","獎盃","獎牌","勝利","戰爭","和平","軍隊","士兵","大砲","盾牌",
   "劍","弓","槍","炸彈","坦克","戰艦","城牆","陷阱","寶藏","寶箱","皇冠","魔杖",
-  "水晶球","燈籠"
+  "水晶球","燈籠",
+  "蛋餅","油條","飯糰","小籠包","滷肉飯","蚵仔煎","布丁","果凍","愛玉","麻糬","沙拉","三明治",
+  "甜甜圈","鬆餅","吐司","口香糖","棒棒糖","洋芋片","泡麵","咖哩","炒飯","皮蛋","香腸","排骨",
+  "海苔","奶茶","紅茶","綠茶","可樂","優格","甜筒","薯條","滷味","便當","南瓜","地瓜",
+  "茄子","高麗菜","栗子","榴槤","哈密瓜","藍莓","奇異果","百香果","美乃滋","紅酒","威士忌","海獺",
+  "刺蝟","食蟻獸","鴕鳥","鸚鵡","燕子","海鷗","禿鷹","倉鼠","鯉魚","河豚","海龜","螳螂",
+  "蟋蟀","甲蟲","蝌蚪","壁虎","蜥蜴","獵豹","黑豹","野兔","鼴鼠","猩猩","殭屍","木乃伊",
+  "巨人","矮人","女巫","魔王","勇者","仙女","怪獸","宇宙","地球","木星","土星","流星",
+  "隕石","黑洞","星座","月球","太空人","太空站","望遠鏡","日出","日落","黃昏","傍晚","深夜",
+  "週末","明天","昨天","今年","去年","古代","未來","過去","現在","瞬間","永遠","海嘯",
+  "烏雲","晴天","陰天","氣溫","溫度","懸崖","高原","平原","海岸","珊瑚","溫泉","池塘",
+  "小溪","叢林","稻田","果園","牧場","岩石","化石","夜市","超商","悠遊卡","發票","紅綠燈",
+  "騎樓","公寓","大樓","別墅","帳篷","木屋","宿舍","旅館","飯店","民宿","客廳","餐桌",
+  "衣櫃","鞋櫃","抽屜","地板","牆壁","圍牆","洗髮精","牙膏","垃圾桶","拖把","衣架","化妝品",
+  "口紅","香皂","假髮","耳環","拖鞋","涼鞋","球鞋","高跟鞋","西裝","洋裝","旗袍","睡衣",
+  "泳衣","安全帽","制服","奶瓶","搖籃","嬰兒車","輪椅","拐杖","繃帶","急救箱","顯微鏡","螺絲",
+  "釘子","梯子","油漆","刷子","起重機","挖土機","黑板","白板","板擦","課本","作業","考卷",
+  "成績","畢業","校長","班長","同學","教授","字典","小說","童話","神話","傳說","日記",
+  "劇本","標題","封面","目錄","膠帶","便利貼","海報","名片","獎狀","勳章","徽章","標籤",
+  "印章","平板","螢幕","主機","印表機","路由器","隨身碟","硬碟","記憶卡","充電器","藍牙","音響",
+  "投影機","遙控器","監視器","無人機","電動車","軟體","程式","網頁","帳號","檔案","資料夾","社群",
+  "貼圖","影集","卡通","紀錄片","廣播","專輯","演唱會","樂團","駕照","護照","簽證","車票",
+  "機票","彩券","提款機","股票","保險","價值","收入","財富","破產","攤販","櫃台","購物車",
+  "環保袋","寶特瓶","保溫瓶","菜單","倉庫","船長","機長","空姐","乘客","旅客","遊客","導遊",
+  "嚮導","探險家","科學家","發明家","導演","攝影師","設計師","郵差","快遞","外送員","會計","經理",
+  "觀眾","聽眾","玩家","隊長","隊友","裁判","教練","球員","運動員","啦啦隊","主持人","評審",
+  "獵人","將軍","武士","刺客","老闆娘","阿姨","叔叔","外婆","外公","寶寶","少年","青年",
+  "老人","孩子","快樂","憤怒","恐懼","失望","希望","感謝","思念","驕傲","害羞","尷尬",
+  "好奇","興奮","壓力","放鬆","後悔","滿足","期待","誠實","謊言","友誼","親情","家庭",
+  "青春","童年","老年","命運","機會","危險","健康","疾病","痛苦","幸運","奇蹟","傳奇",
+  "英雄","正義","邪惡","真相","魔法","咒語","祝福","幻想","想像","創意","智慧","知識",
+  "習慣","好人","壞人","陌生人","路人","法律","規則","權利","合作","團隊","目標","任務",
+  "挑戰","冒險","旅程","方向","速度","推理","發現","文明","文化","傳統","藝術","陶瓷",
+  "古董","圓形","方形","圓圈","十字","星形","愛心","紅色","藍色","綠色","黃色","紫色",
+  "橙色","黑色","白色","彩色","圓點","田徑","接力賽","曲棍球","高爾夫","保齡球","撞球","飛鏢",
+  "滑板車","跳傘","攀岩","拔河","跆拳道","太極拳","瑜伽墊","球拍","球網","球棒","哨子","計分板",
+  "獎杯","奧運","世界盃","決賽","日食","月食","宅配","野餐墊","摩天輪","碰碰車","盆栽","鬧鐘",
+  "行李箱","中心","起點","終點","入口","出口","平衡","巧合","緣分","默契","驚喜","耐心",
+  "熱情","溫柔","勇敢","善良","浪漫","幽默","神祕","孤獨","寂寞","平靜","選擇","茶包",
+  "吸管","酒杯","平底鍋","蒸籠","砧板","菜刀","電鍋","變電所","路燈","涼亭","紀念碑","觀景台",
+  "體育館","音樂廳","美術館","植物園","遊樂場","派出所","消防局","郵筒","電力","瓦斯","石油","汽油",
+  "氧氣","細菌","細胞","基因","大理石","琥珀","翡翠","紅寶石","藍寶石","公事包","皮夾","盔甲",
+  "護城河","王座","權杖","魔鏡"
 ];
 
 // ---------- 機密代號：純邏輯 ----------
 const CN_TEAM_LABEL = {red:"紅隊", blue:"藍隊"};
 const CN_TEAM_EMOJI = {red:"🔴", blue:"🔵"};
+// 色盲友善：每種顏色另外配一個形狀記號（紅 ▲、藍 ●、刺客 ✕、平民不加），開啟「色盲友善模式」時才顯示在牌角落。
+const CN_GLYPH = {red:"▲", blue:"●", assassin:"✕", neutral:""};
+const CN_COLOR_NAME = {red:"紅隊特工", blue:"藍隊特工", neutral:"平民", assassin:"刺客"};
 function cnOther(t){ return t==="red" ? "blue" : "red"; }
 function cnShuffle(arr){
   const a = arr.slice();
@@ -920,7 +1439,32 @@ const JO_WORDS = [
   "走廊","大門","馬桶","浴缸","蓮蓬頭","洗衣機","冷氣","電風扇","微波爐","烤箱","吸塵器","掃把",
   "書本","報紙","雜誌","信封","郵票","鈔票","硬幣","護照","身分證","網路","遊戲","簡訊",
   "照片","影片","音樂","歌曲","笑話","故事","謎語","電話","密碼","網站","訊息","直播",
-  "廣告","新聞","天氣","麵粉","砂糖","鹽巴","醬油","胡椒"
+  "廣告","新聞","天氣","麵粉","砂糖","鹽巴","醬油","胡椒",
+  "鹽酥雞","雞排","滷肉飯","牛肉麵","蚵仔煎","小籠包","蛋餅","油條","飯糰","剉冰","麻糬","湯圓",
+  "甜甜圈","鬆餅","布丁","三明治","熱狗","泡麵","炒飯","水餃","皮蛋","茶葉蛋","海苔","烏龍茶",
+  "汽水","爆米花","口香糖","棒棒糖","吐司","南瓜","番茄","柚子","荔枝","鯨魚","水母","海星",
+  "海龜","螃蟹","龍蝦","河豚","金魚","無尾熊","樹懶","鴕鳥","火烈鳥","天鵝","鴨子","綿羊",
+  "猩猩","河馬","犀牛","倉鼠","蝸牛","蜻蜓","螳螂","螢火蟲","變色龍","獨角獸","美人魚","電鍋",
+  "吹風機","遙控器","手電筒","打火機","鬧鐘","行動電源","投影機","印表機","毛毯","地毯","洗髮精","牙膏",
+  "衛生紙","拖鞋","球鞋","高跟鞋","皮鞋","襯衫","領帶","西裝","睡衣","行李箱","安全帽","菜刀",
+  "砧板","筷子","湯匙","叉子","盤子","杯子","茶壺","保溫瓶","原子筆","鋼筆","膠水","膠帶",
+  "課本","字典","黑板","粉筆","書包","梯子","油漆","高鐵","獨木舟","降落傘","太空船","摩天輪",
+  "雲霄飛車","旋轉木馬","溜滑梯","盪鞦韆","蹺蹺板","方向盤","紅綠燈","加油站","停車場","高速公路","便利商店","夜市",
+  "百貨公司","書店","診所","健身房","操場","梅雨","打雷","極光","流星","日出","日落","銀河",
+  "星座","大海","溫泉","懸崖","叢林","冰山","洞穴","山谷","稻田","櫻花","向日葵","玫瑰",
+  "蘭花","仙人掌","竹子","親情","智慧","緣分","默契","浪漫","幽默","溫柔","耐心","熱情",
+  "誠實","感謝","驕傲","害羞","尷尬","好奇","興奮","做夢","賴床","遲到","放假","排球",
+  "高爾夫","躲避球","馬拉松","跳水","跳繩","拔河","賽跑","跆拳道","擊劍","攀岩","划船","野餐",
+  "烤肉","大提琴","長笛","薩克斯風","口琴","烏克麗麗","電子琴","樂團","演唱會","街舞","布袋戲","歌仔戲",
+  "馬戲團","動畫","卡通","漫畫","小說","童話","神話","日記","劇本","紀錄片","大富翁","樂高",
+  "泰迪熊","扮家家酒","捉迷藏","導演","工程師","設計師","建築師","郵差","外送員","理髮師","攝影師","教練",
+  "運動員","太空人","科學家","探險家","導遊","空姐","機長","船長","王子","女巫","殭屍","吸血鬼",
+  "狼人","木乃伊","精靈","外公","外婆","嬰兒","老人","情侶","觀眾","對手","脖子","酒窩",
+  "雀斑","舞龍舞獅","端午節","龍舟","中秋節","冬至","聖誕樹","萬聖節","母親節","兒童節","跨年","運動會",
+  "旅行","度假","機票","飯店","帳篷","自拍","紀念品","伴手禮","貼圖","薪水","彩券","發票",
+  "信用卡","悠遊卡","撲滿","皇冠","魔杖","寶箱","宮殿","金字塔","長城","鐵塔","古堡","廢墟",
+  "翡翠","沙子","泥土","書法","暴龍","國旗","號角","輪椅","拐杖","打嗝","打噴嚏","感冒",
+  "近視","握手","擁抱","微笑","鞠躬","打哈欠"
 ];
 
 // 看門狗 / 手動安全閥共用的判斷（純函式）。
@@ -1186,6 +1730,107 @@ const QUESTIONS = [
 ["你認為PP會選哪個當減壓方式？",["運動流汗", "找人聊天", "獨處放空", "大吃一頓"],"life"],
 ["你覺得PP覺得哪個最能代表台灣？",["夜市小吃", "便利商店", "珍珠奶茶", "機車"],"life"],
 ["你猜PP會選哪個人生座右銘方向？",["活在當下", "凡事努力", "順其自然", "勇敢冒險"],"values"],
+["你猜PP領到年終獎金後第一個念頭是？",["存起來", "犒賞自己一頓", "買想很久的東西", "孝敬家人"],"work_money"],
+["你覺得PP面對加班通常是什麼反應？",["默默做完", "嘴上抱怨但還是做", "能閃就閃", "盡量在上班時間搞定"],"work_money"],
+["你認為PP理想的上班通勤時間是？",["走路就到", "三十分鐘內", "一小時內", "在家遠端工作"],"work_money"],
+["你猜PP最想擁有哪種主管？",["放手信任型", "嚴格但公平", "像朋友一樣", "很少出現的"],"work_money"],
+["你覺得PP發薪日當天最可能做什麼？",["先繳帳單", "立刻購物", "吃一頓好的", "默默存起來"],"work_money"],
+["你認為PP更看重工作的哪一點？",["薪水高", "做的事有意義", "同事相處愉快", "準時下班"],"work_money"],
+["你猜PP會把第一桶金拿去做什麼？",["投資股票基金", "創業開店", "買房子頭期款", "進修學習"],"work_money"],
+["你覺得PP遇到不合理的要求會怎麼辦？",["直接拒絕", "先答應再想辦法", "找人商量", "笑笑帶過"],"work_money"],
+["你認為PP的記帳習慣比較像？",["每筆都記", "月底大概算算", "偶爾想到才記", "從來不記"],"work_money"],
+["你猜PP最難抗拒的消費是？",["美食", "3C產品", "衣服鞋子", "線上課程或書"],"work_money"],
+["你覺得PP開會時最常出現的狀態是？",["認真做筆記", "神遊天外", "負責發言", "偷看手機"],"work_money"],
+["你認為PP更想要哪種工作環境？",["安靜獨立的座位", "熱鬧的開放空間", "咖啡廳", "自己家裡"],"work_money"],
+["你猜PP如果每週只上四天班，多出的一天會拿來？",["補眠", "學新東西", "出去玩", "做副業"],"work_money"],
+["你覺得PP遇到團購優惠會怎麼做？",["立刻跟團", "先比價再說", "看朋友買不買", "完全不心動"],"work_money"],
+["你猜PP小時候最期待的節日是？",["過年", "生日", "聖誕節", "寒暑假開始的那天"],"memory"],
+["你認為PP學生時代最常遲到的原因是？",["睡過頭", "在路上閒晃", "忘東西折返", "其實很少遲到"],"memory"],
+["你覺得PP小時候最愛的零食是？",["餅乾", "糖果", "冰棒", "洋芋片"],"memory"],
+["你猜PP學生時代最喜歡哪類課？",["體育課", "美術或音樂", "數理", "國文或英文"],"memory"],
+["你認為PP畢業旅行最可能扮演什麼角色？",["帶頭玩的", "負責拍照", "全程補眠", "顧行李的"],"memory"],
+["你覺得PP小時候被爸媽唸最多的是？",["房間很亂", "看太多電視", "吃飯很慢", "功課沒寫完"],"memory"],
+["你猜PP小時候最常玩的遊戲是？",["捉迷藏", "跳房子", "電動", "扮家家酒"],"memory"],
+["你認為PP兒時最大的恐懼是？",["打針看醫生", "黑暗", "被老師點名", "迷路"],"memory"],
+["你猜PP出門前最常檢查什麼？",["瓦斯和門窗", "錢包鑰匙手機", "天氣", "鏡子裡的自己"],"life"],
+["你覺得PP最難戒掉的習慣是？",["滑手機", "熬夜", "咬指甲或抖腳", "吃宵夜"],"life"],
+["你認為PP的房間平常比較像？",["整齊乾淨", "亂中有序", "東西堆成山", "隨時都在整理"],"life"],
+["你猜PP下雨天比較可能怎麼做？",["撐傘照常出門", "穿雨衣", "窩在家不出門", "等雨停再說"],"life"],
+["你覺得PP更想成為哪種人？",["很有錢", "很有名", "很有智慧", "很受歡迎"],"values"],
+["你認為PP做決定時最看重什麼？",["理性分析", "直覺", "朋友的意見", "家人的想法"],"values"],
+["你猜PP面對失敗最可能怎麼想？",["下次再來", "先難過一下", "檢討原因", "安慰自己沒關係"],"values"],
+["你覺得PP最無法容忍哪種行為？",["說謊", "遲到", "不守規矩", "沒禮貌"],"values"],
+["你認為PP更欣賞哪種朋友？",["幽默風趣", "誠實可靠", "體貼溫柔", "有上進心"],"values"],
+["你猜PP覺得人生最大的幸福是？",["家人平安", "做喜歡的事", "財富自由", "有好朋友"],"values"],
+["你覺得PP遇到意見不同時會？",["堅持己見", "退一步", "找折衷方案", "轉移話題"],"values"],
+["你認為PP比較像哪種生活態度？",["計畫派", "隨興派", "拖延派", "效率派"],"values"],
+["你猜PP更傾向哪種選擇？",["穩定安全", "刺激冒險", "看情況", "聽別人的建議"],"values"],
+["你覺得PP撿到錢包會怎麼做？",["送去警察局", "自己找失主", "交給店家", "猶豫很久"],"values"],
+["你認為PP更相信哪一句話？",["努力就有收穫", "機會留給準備好的人", "命運自有安排", "開心最重要"],"values"],
+["你猜PP吃火鍋一定會點什麼？",["肉片", "蔬菜盤", "豆腐或凍豆腐", "餃類"],"food"],
+["你覺得PP手搖飲最常選的甜度是？",["全糖", "半糖", "微糖", "無糖"],"food"],
+["你認為PP吃雞排會選哪種口味？",["原味", "辣味", "梅子粉", "胡椒鹽"],"food"],
+["你猜PP吃牛肉麵時最重視什麼？",["湯頭", "麵條", "牛肉", "小菜"],"food"],
+["你覺得PP最愛的宵夜類型是？",["鹹酥雞", "滷味", "燒烤", "泡麵"],"food"],
+["你認為PP逛夜市第一攤會去？",["炸物", "飲料", "遊戲攤位", "甜點"],"food"],
+["你猜PP面對吃到飽餐廳會怎麼吃？",["先吃肉", "先吃甜點", "每樣都拿一點", "專攻最貴的"],"food"],
+["你覺得PP旅行時行李通常是？",["輕便一個包", "一個大箱子", "塞到爆", "臨時才收"],"travel"],
+["你猜PP旅遊最在意什麼？",["美食", "風景", "住宿舒適", "省錢"],"travel"],
+["你認為PP出國第一件事會做什麼？",["買網路卡", "找東西吃", "拍照打卡", "睡一覺調時差"],"travel"],
+["你猜PP更愛哪種旅行節奏？",["行程塞滿", "一天一景點", "走到哪玩到哪", "整天躺在飯店"],"travel"],
+["你覺得PP在機場最可能做什麼？",["逛免稅店", "坐著滑手機", "提早到等很久", "差點趕不上"],"travel"],
+["你認為PP最想去哪個地區旅行？",["日本", "歐洲", "美洲", "東南亞"],"travel"],
+["你猜PP在旅途中最常拍什麼？",["風景", "美食", "自拍", "路邊的小東西"],"travel"],
+["你覺得PP搭長途車最可能在做什麼？",["睡覺", "看劇", "聽音樂", "看窗外"],"travel"],
+["你認為PP比較會選哪種旅行方式？",["跟團", "自由行", "半自助", "說走就走"],"travel"],
+["你猜PP看電影時會選哪個座位？",["正中央", "後排", "走道旁", "前排"],"entertainment"],
+["你覺得PP追劇的習慣是？",["一口氣追完", "一天一集", "等完結再看", "邊做事邊看"],"entertainment"],
+["你認為PP最常聽哪種音樂？",["流行歌", "搖滾", "輕音樂或純音樂", "嘻哈饒舌"],"entertainment"],
+["你猜PP玩桌遊時最常是什麼角色？",["策略大師", "愛亂入的", "認真研究規則的", "純粹來吃零食的"],"entertainment"],
+["你覺得PP唱KTV第一首會點？",["慢歌", "快歌", "老歌", "大家一起合唱的"],"entertainment"],
+["你認為PP看恐怖片時的反應是？",["尖叫", "遮眼睛", "面不改色", "一直吐槽"],"entertainment"],
+["你猜PP最想嘗試哪種運動？",["攀岩", "滑雪", "衝浪", "打高爾夫"],"entertainment"],
+["你覺得PP玩手機遊戲的方式是？",["重度課長", "無課輕鬆玩", "只玩益智小遊戲", "不太玩"],"entertainment"],
+["你覺得PP收到朋友訊息通常多久回？",["秒回", "一小時內", "當天回", "看心情"],"relationship"],
+["你猜PP和朋友吵架後會怎麼和好？",["主動道歉", "等對方開口", "假裝沒事", "傳貼圖示好"],"relationship"],
+["你認為PP更喜歡哪種約會？",["看電影", "吃大餐", "戶外散步", "在家窩著"],"relationship"],
+["你猜PP送禮物時最常選？",["實用的東西", "手作小物", "吃的", "禮券或紅包"],"relationship"],
+["你覺得PP在朋友聚會中通常是？",["氣氛製造者", "默默聆聽", "負責訂位", "最後才到"],"relationship"],
+["你認為PP最難開口的是？",["說謝謝", "說對不起", "拒絕別人", "請人幫忙"],"relationship"],
+["你猜PP看到朋友心情不好會？",["陪著聊聊", "買好吃的安慰", "靜靜陪伴", "講笑話逗對方笑"],"relationship"],
+["你覺得PP第一次見面最容易給人什麼印象？",["親切", "害羞", "酷酷的", "很健談"],"relationship"],
+["你認為PP收到驚喜派對會有什麼反應？",["感動落淚", "開心大笑", "愣住說不出話", "假裝早就知道"],"relationship"],
+["如果可以穿越時空，你猜PP會去哪裡？",["遠古恐龍時代", "古代皇宮", "未來世界", "回到小時候"],"fantasy"],
+["如果PP可以變成動物一天，你猜會選哪種？",["貓", "狗", "鳥", "海豚"],"fantasy"],
+["如果PP擁有一座私人島嶼，你猜會拿來做什麼？",["蓋度假別墅", "動物保護區", "遊樂園", "隱居生活"],"fantasy"],
+["如果PP遇到外星人，你猜會先說什麼？",["你好", "帶我走", "快逃", "可以合照嗎"],"fantasy"],
+["如果PP能和一個虛構角色當一天朋友，你猜會選？",["魔法師", "超級英雄", "卡通動物", "機器人"],"fantasy"],
+["如果PP被困在荒島，你猜最先做的事是？",["找水源", "搭棚子", "生火", "大聲求救"],"fantasy"],
+["如果PP能隱形一天，你猜會做什麼？",["偷看大家在幹嘛", "進電影院免費看", "惡作劇", "偷吃東西"],"fantasy"],
+["如果PP擁有時間暫停的能力，你猜會用來？",["多睡一會", "吃遍美食", "準時完成工作", "到處逛逛"],"fantasy"],
+["如果世界末日只剩一天，你猜PP會做什麼？",["和家人吃飯", "做想做的事", "大吃大喝", "平常心過日子"],"fantasy"],
+["如果PP可以住進任何動畫世界，你猜會選？",["魔法學院", "海上冒險", "忍者村", "太空船"],"fantasy"],
+["如果PP得到一隻龍當寵物，你猜會幫牠取名叫？",["小火", "阿福", "吐司", "大黃"],"fantasy"],
+["如果PP可以實現三個願望，你猜第一個是？",["身體健康", "財富自由", "環遊世界", "再多三個願望"],"fantasy"],
+["如果PP能預知未來，你猜最想知道什麼？",["樂透號碼", "自己幾歲結婚", "事業發展", "什麼都不想知道"],"fantasy"],
+["如果PP可以和一種動物對話，你猜會選？",["貓", "狗", "鳥", "海洋生物"],"fantasy"],
+["如果遇到殭屍末日，你猜PP會優先找哪種隊友？",["醫生", "廚師", "運動員", "好朋友"],"fantasy"],
+["如果PP突然當上國王，你猜第一道命令是？",["天天放假", "美食免費", "蓋遊樂園", "全民睡到自然醒"],"fantasy"],
+["如果PP有一扇任意門，你猜第一個會去哪？",["海邊", "國外美食街", "山頂看日出", "回老家"],"fantasy"],
+["你覺得PP的手機電量通常剩多少？",["滿格", "一半左右", "快沒電了", "常常關機"],"other"],
+["你認為PP最常用的通訊軟體功能是？",["貼圖", "語音訊息", "文字聊天", "限時動態"],"other"],
+["你猜PP忘記帶傘遇到下雨會？",["直接衝過去", "躲在屋簷下等", "買一把新的", "找朋友借"],"other"],
+["你覺得PP拍團體照時會站哪裡？",["最中間", "最旁邊", "最後面", "負責拿手機拍"],"other"],
+["你猜PP的行事曆是什麼狀態？",["排得滿滿", "留有空白", "只記重要日子", "根本沒在用"],"other"],
+["你認為PP看到有人插隊會？",["直接制止", "默默不爽", "無所謂", "找店員處理"],"other"],
+["你猜PP最常說的語助詞是？",["對啊", "欸", "真的假的", "好喔"],"other"],
+["你覺得PP的電腦桌面是什麼樣子？",["乾淨整齊", "檔案滿滿", "全是截圖", "都收在資料夾"],"other"],
+["你認為PP最容易弄丟什麼東西？",["雨傘", "鑰匙", "耳機", "充電線"],"other"],
+["你猜PP在電梯裡會做什麼？",["盯著樓層數字", "滑手機", "跟別人點頭致意", "整理儀容"],"other"],
+["你覺得PP對新科技的態度是？",["第一時間嘗鮮", "觀望一陣子", "不得已才換", "不太感興趣"],"other"],
+["你認為PP接到陌生來電會？",["馬上接", "先不接", "上網搜尋號碼", "直接掛掉"],"other"],
+["你猜PP中午吃飯通常和誰一起？",["同事或同學", "家人", "一個人", "外送在座位吃"],"other"],
+["你覺得PP發現自己的限時動態被截圖會？",["無所謂", "有點尷尬", "要求刪除", "馬上截回去"],"other"],
 ];
 // 「關於你」題型：PP 會在出題時被隨機替換成場上其中一位玩家的名字，全場一起猜這個人的答案。
 const TARGETED_QUESTIONS = [
@@ -1209,6 +1854,28 @@ const TARGETED_QUESTIONS = [
 ["你猜PP最捨不得丟掉的東西是？",["舊照片", "舊衣服", "紀念品", "書信卡片"],"aboutyou"],
 ["你認為PP最想去的地方是？",["日本", "歐洲", "美國", "東南亞"],"aboutyou"],
 ["你猜PP如果突然變有錢，第一件事會？",["犒賞自己", "孝親或給家人", "拿去投資", "低調不改變生活"],"aboutyou"],
+["你覺得PP早上起床的第一件事是？",["滑手機", "刷牙洗臉", "賴床", "喝水"],"aboutyou"],
+["你猜PP最常點的外送類型是？",["便當", "手搖飲", "炸雞", "麵食"],"aboutyou"],
+["你認為PP最像哪種動物？",["貓", "狗", "狐狸", "無尾熊"],"aboutyou"],
+["你猜PP在團體裡通常扮演的角色是？",["帶頭的", "氣氛組", "軍師", "默默跟隨"],"aboutyou"],
+["你覺得PP最不能沒有的東西是？",["手機", "錢包", "耳機", "水壺"],"aboutyou"],
+["你猜PP最愛的休閒活動是？",["看影集", "運動", "逛街", "打電動"],"aboutyou"],
+["你認為PP的笑點比較像？",["很容易笑", "看情況", "要很好笑才笑", "笑點很奇怪"],"aboutyou"],
+["你猜PP洗澡時最可能做的事是？",["唱歌", "發呆想事情", "洗得很快", "洗很久"],"aboutyou"],
+["你覺得PP睡前最後一件事是？",["滑手機", "看書", "聽音樂", "想明天要做什麼"],"aboutyou"],
+["你猜PP看到蟲子的反應是？",["尖叫", "拿東西打", "默默走開", "請別人處理"],"aboutyou"],
+["你認為PP最吸引人的特質是？",["幽默", "溫柔", "聰明", "真誠"],"aboutyou"],
+["你猜PP最常喝的飲料是？",["白開水", "手搖飲", "咖啡", "汽水"],"aboutyou"],
+["你覺得PP出門最常搭什麼交通工具？",["捷運", "公車", "機車", "開車"],"aboutyou"],
+["你猜PP的拿手菜最可能是？",["蛋炒飯", "泡麵加蛋", "煎蛋", "其實不會煮"],"aboutyou"],
+["你認為PP生氣的時候會？",["安靜不說話", "直接說出來", "大吃一頓", "找人抱怨"],"aboutyou"],
+["你猜PP最愛的季節是？",["春天", "夏天", "秋天", "冬天"],"aboutyou"],
+["你覺得PP的手機相簿裡最多什麼？",["食物", "風景", "寵物", "截圖"],"aboutyou"],
+["你猜PP最常說的口頭禪最接近？",["真的假的", "好啊", "隨便", "我再想想"],"aboutyou"],
+["你認為PP在KTV最常唱哪類歌？",["抒情慢歌", "快歌", "老歌", "不太敢唱"],"aboutyou"],
+["你猜PP遇到不會的事會先？",["上網查", "問朋友", "自己摸索", "先放著"],"aboutyou"],
+["你覺得PP最想改掉自己的哪個缺點？",["拖延", "太容易緊張", "愛亂花錢", "脾氣急"],"aboutyou"],
+["你猜PP最想擁有的長處是？",["更有自信", "超強記憶力", "好口才", "好體力"],"aboutyou"],
 ];
 const LETTERS = ["A","B","C","D"];
 
@@ -1238,41 +1905,9 @@ function materializeQuestion(item, players, round){
   return {q:item.q.replace(/PP/g, nm), options:item.options};
 }
 // ---------- 音效 / 震動回饋 ----------
-function setSoundEnabled(v){
-  soundEnabled = v;
-  try{ localStorage.setItem("telepathySound", v?"on":"off"); }catch(e){}
-}
-function beep(freq, durMs, type){
-  if(!soundEnabled) return;
-  try{
-    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type||"sine";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.16, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durMs/1000);
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + durMs/1000);
-  }catch(e){}
-}
-function vibrate(pattern){
-  if(!soundEnabled) return;
-  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
-}
-function playVoteSound(){ beep(520,70,"sine"); vibrate(15); }
-function playResultSound(safe){
-  if(safe){
-    beep(660,90,"sine");
-    setTimeout(()=>beep(880,120,"sine"), 90);
-    vibrate(20);
-  } else {
-    beep(180,220,"sawtooth");
-    vibrate([40,40,40]);
-  }
-}
+// beep / vibrate / cue / 音效開關都搬到 ux.js（和設定、戰績、教學旗標放在一起）；這裡只留兩個舊名稱的薄包裝。
+function playVoteSound(){ cue("tick"); }
+function playResultSound(safe){ cue(safe ? "success" : "fail"); }
 
 // ---------- 房間過期清理 ----------
 // 房間資料一直沒動作就會永遠留在資料庫裡，這裡順手把整組房間（玩家/投票/鎖）都清掉。
@@ -1342,14 +1977,12 @@ let tickTimer=null;
 // 房間超過這麼久沒有任何動作，視為過期，加入時會被擋下並順手清掉舊資料。
 const ROOM_EXPIRE_MS = 12*60*60*1000;
 let expireCleanupDone = false;
-let soundEnabled = (function(){ try{ return localStorage.getItem("telepathySound") !== "off"; }catch(e){ return true; } })();
-let audioCtx = null;
 let soundedRound = null;
 let voteBusy=false, resolveBusy=false;
 
 const app = document.getElementById("app");
 
-function render(){
+function renderScreen(){
   if(mlDragging || drawingInProgress || drawPromptAnimating) return; // 拖曳排序中/畫畫中/抽題拉霸動畫中先不要整頁重畫，不然手指動作或動畫會被背景更新打斷、跳掉
   if(!identity){ renderHome(); return; }
   if(!roomData){ renderConnecting(); return; }
@@ -1494,10 +2127,14 @@ function renderHome(){
       ` : ``}
       <label>選一個代表你的頭像</label>
       <div class="avatargrid">
-        ${AVATARS.map(a=>`<button class="avatarbtn ${homeAvatar===a?'on':''}" data-avatar="${a}">${a}</button>`).join("")}
+        ${AVATARS.map(a=>`<button class="avatarbtn ${homeAvatar===a?'on':''}" data-avatar="${a}" aria-label="選擇頭像 ${a}" aria-pressed="${homeAvatar===a}">${a}</button>`).join("")}
       </div>
       <div class="error">${esc(joinError)}</div>
       <button class="btn-primary" id="goBtn">${homeTab==='create' ? '建立房間' : '加入房間'}</button>
+    </div>
+    <div class="iconrow">
+      <button class="iconbtn" id="pgOpenDisplay"><span class="iconbtn-emoji" aria-hidden="true">⚙️</span><span>顯示設定</span></button>
+      <button class="iconbtn" id="pgOpenStats"><span class="iconbtn-emoji" aria-hidden="true">📊</span><span>我的戰績</span></button>
     </div>
     <p class="helper">${homeTab==='create'
       ? (homeGameType==='mostlikely' ? '2 人以上就能玩，猜猜大家心裡最可能是誰。'
@@ -1521,6 +2158,8 @@ function renderHome(){
   if(codeEl) codeEl.oninput = e=>homeCode = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4);
   document.querySelectorAll("[data-avatar]").forEach(b=> b.onclick = ()=>{ homeAvatar = b.dataset.avatar; render(); });
   document.getElementById("goBtn").onclick = ()=> homeTab==='create' ? doCreate() : doJoin();
+  document.getElementById("pgOpenDisplay").onclick = ()=> pgOpenOverlay("display");
+  document.getElementById("pgOpenStats").onclick = ()=> pgOpenOverlay("stats");
 }
 
 function renderConnecting(){ app.innerHTML = `<div class="card" style="text-align:center; color:var(--muted);"><span class="spin"></span>連線中…</div>`; }
@@ -1591,7 +2230,7 @@ function renderLobby(isHost){
       </ul>
       ${lobbyAvatarPickOpen ? `
         <div class="avatargrid" style="margin-top:12px;">
-          ${AVATARS.map(a=>`<button class="avatarbtn ${(playersData.find(p=>p.id===identity.playerId)||{}).avatar===a?'on':''}" data-avatar2="${a}">${a}</button>`).join("")}
+          ${AVATARS.map(a=>`<button class="avatarbtn ${(playersData.find(p=>p.id===identity.playerId)||{}).avatar===a?'on':''}" data-avatar2="${a}" aria-label="換成頭像 ${a}">${a}</button>`).join("")}
         </div>
       ` : ``}
       ${isCodenames ? renderCnLobbyTeams(isHost) : ``}
@@ -1630,7 +2269,7 @@ function renderLobby(isHost){
   document.getElementById("readyBtn").onclick = toggleReady;
   document.getElementById("toggleSoundBtn").onclick = ()=>{
     setSoundEnabled(!soundEnabled);
-    if(soundEnabled) beep(660,90,"sine");
+    if(soundEnabled) cue("tick");
     render();
   };
   if(isHost){
@@ -1669,7 +2308,7 @@ function renderHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -1705,19 +2344,19 @@ function renderSettingsModal(isHost, settings, enabledCats, mode){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         ${isHost ? `
           <div class="settingsrow" style="border-top:none;">
             <span>思考時間</span>
             <div class="stepper">
-              <button id="durMinus">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus">+</button>
+              <button id="durMinus" aria-label="減少時間">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus" aria-label="增加時間">+</button>
             </div>
           </div>
           <div class="settingsrow">
             <span>扣幾分算輸</span>
             <div class="stepper">
-              <button id="tgtMinus">−</button><span class="n">${settings.targetStrikes} 分</span><button id="tgtPlus">+</button>
+              <button id="tgtMinus" aria-label="減少分數上限">−</button><span class="n">${settings.targetStrikes} 分</span><button id="tgtPlus" aria-label="增加分數上限">+</button>
             </div>
           </div>
           <div style="padding-top:12px; border-top:1px solid var(--line); margin-top:2px;">
@@ -1787,7 +2426,7 @@ function renderMLHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -1823,19 +2462,19 @@ function renderMLSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         ${isHost ? `
           <div class="settingsrow" style="border-top:none;">
             <span>排序時間</span>
             <div class="stepper">
-              <button id="durMinus">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus">+</button>
+              <button id="durMinus" aria-label="減少時間">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus" aria-label="增加時間">+</button>
             </div>
           </div>
           <div class="settingsrow">
             <span>玩幾題</span>
             <div class="stepper">
-              <button id="roundsMinus">−</button><span class="n">${totalRounds} 題</span><button id="roundsPlus">+</button>
+              <button id="roundsMinus" aria-label="減少回合數">−</button><span class="n">${totalRounds} 題</span><button id="roundsPlus" aria-label="增加回合數">+</button>
             </div>
           </div>
         ` : `
@@ -1868,7 +2507,7 @@ function renderDrawHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -1900,19 +2539,19 @@ function renderDrawSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         ${isHost ? `
           <div class="settingsrow" style="border-top:none;">
             <span>每人畫幾秒</span>
             <div class="stepper">
-              <button id="durMinus">−</button><span class="n">${settings.turnSeconds} 秒</span><button id="durPlus">+</button>
+              <button id="durMinus" aria-label="減少時間">−</button><span class="n">${settings.turnSeconds} 秒</span><button id="durPlus" aria-label="增加時間">+</button>
             </div>
           </div>
           <div class="settingsrow">
             <span>玩幾輪</span>
             <div class="stepper">
-              <button id="roundsMinus">−</button><span class="n">${totalRounds} 輪</span><button id="roundsPlus">+</button>
+              <button id="roundsMinus" aria-label="減少回合數">−</button><span class="n">${totalRounds} 輪</span><button id="roundsPlus" aria-label="增加回合數">+</button>
             </div>
           </div>
         ` : `
@@ -1945,7 +2584,7 @@ function renderWerewolfHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -1988,7 +2627,7 @@ function renderWerewolfSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         <div class="settingsrow" style="border-top:none;">
           <span>狼人人數（依人數自動算）</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${wolfCount} 人</span>
@@ -2023,7 +2662,7 @@ function renderAvalonHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -2066,7 +2705,7 @@ function renderAvalonSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         <div class="settingsrow" style="border-top:none;">
           <span>陣營人數（依人數自動算）</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${counts ? `好 ${counts.good} / 壞 ${counts.evil}` : '需 5～10 人'}</span>
@@ -2101,7 +2740,7 @@ function renderBankModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>📚 題庫</h2>
-          <button class="modalclose" id="bankClose">✕</button>
+          <button class="modalclose" id="bankClose" aria-label="關閉">✕</button>
         </div>
         ${renderQuestionBank()}
       </div>
@@ -2222,6 +2861,171 @@ async function doDeleteCustomQuestion(id){
   try{ await customQuestionsCol.doc(id).delete(); }catch(e){}
 }
 
+// ---------- 體驗功能：畫面（頂端小按鈕、顯示設定、戰績、首次教學、render 前後的掛勾）----------
+let pgOverlay = null;          // "display" | "stats" | null
+let pgStatsAskClear = false;
+let pgFocusBack = null;
+
+function pgSyncControls(){
+  try{
+    const b = document.getElementById("pgSndBtn");
+    if(b){
+      b.textContent = soundEnabled ? "🔊" : "🔇";
+      b.setAttribute("aria-label", soundEnabled ? "音效與震動：開（點一下關閉）" : "音效與震動：關（點一下開啟）");
+      b.setAttribute("aria-pressed", soundEnabled ? "true" : "false");
+    }
+  }catch(e){}
+}
+
+function pgInstallRowHtml(){
+  return `
+    <div class="card" style="margin-bottom:10px;">
+      <div class="helptitle">📲 加到主畫面</div>
+      <p class="pgdesc" style="margin:0; font-size:13px; color:var(--muted); text-align:left; line-height:1.7;">iPhone／iPad：Safari 的 分享 → 加入主畫面<br>Android：Chrome 的 ⋮ → 安裝應用程式</p>
+    </div>`;
+}
+
+function pgDisplayModalHtml(){
+  const fsBtns = PG_FONT_LABELS.map((l,i)=>`<button class="catchip ${pgSettings.fs===i?'on':''}" data-pgfs="${i}" aria-pressed="${pgSettings.fs===i}" aria-label="字體大小：${['縮小','標準','放大'][i]}">${l}</button>`).join("");
+  return `
+    <div class="modalbackdrop" id="pgBackdrop">
+      <div class="modalsheet" role="dialog" aria-modal="true" aria-label="顯示設定">
+        <div class="modalhead"><h2>⚙️ 顯示設定</h2><button class="modalclose" id="pgClose" aria-label="關閉">✕</button></div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="helptitle">字體大小</div>
+          <div class="seg" role="group" aria-label="字體大小">${fsBtns}</div>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="pgrow"><div><div class="helptitle" style="margin:0;">音效與震動</div><p class="pgdesc">輪到你、揭曉、勝負時的短提示音</p></div>
+          <button class="pgswitch" id="pgSndToggle" role="switch" aria-checked="${soundEnabled}" aria-label="音效與震動">${soundEnabled?'🔊 開':'🔇 關'}</button></div>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="pgrow"><div><div class="helptitle" style="margin:0;">色盲友善模式</div><p class="pgdesc">機密代號的牌加上 ▲ ● ✕ 記號與紋路，不只靠顏色分辨</p></div>
+          <button class="pgswitch" id="pgCbToggle" role="switch" aria-checked="${pgSettings.cb}" aria-label="色盲友善模式">${pgSettings.cb?'開':'關'}</button></div>
+        </div>
+        ${pgInstallRowHtml()}
+        <button class="btn-primary" id="pgDone">完成</button>
+      </div>
+    </div>`;
+}
+function pgStatsModalHtml(){
+  const rows = pgStatsRows();
+  const any = rows.some(r=>r.played>0);
+  const li = rows.map(r=>{
+    let nums;
+    if(!r.played) nums = "還沒玩過";
+    else if(r.gt==="justone") nums = `玩 ${r.played} 場 · 最高 ${r.best ? r.best.score+"/"+r.best.total : "—"}`;
+    else if(!r.tracksWins) nums = `玩 ${r.played} 場`;
+    else nums = `玩 ${r.played} 場 · 勝 ${r.wins} · ${r.rate}%`;
+    return `<li class="pgstat"><span class="pname">${r.icon} ${esc(r.name)}</span><span class="pgnums">${esc(nums)}</span></li>`;
+  }).join("");
+  return `
+    <div class="modalbackdrop" id="pgBackdrop">
+      <div class="modalsheet" role="dialog" aria-modal="true" aria-label="我的戰績">
+        <div class="modalhead"><h2>📊 我的戰績</h2><button class="modalclose" id="pgClose" aria-label="關閉">✕</button></div>
+        <p class="pgnote" style="margin-top:-6px;">只存在這支手機（換手機或清除瀏覽器資料就會消失），沒有帳號、不會上傳。</p>
+        <ul class="playerlist">${li}</ul>
+        <p class="pgnote">勝場：陣營／隊伍遊戲算己方獲勝；心電感應、誰最可能算名次第一。接力畫猜與只有一個是合作遊戲，不計勝率。</p>
+        ${pgStatsAskClear ? `
+          <p class="error" style="text-align:center; margin:0 0 8px;">確定要清除全部戰績嗎？清除後無法復原。</p>
+          <div class="row"><button class="btn-secondary" id="pgClearNo">取消</button><button class="btn-secondary pgdanger" id="pgClearYes">確定清除</button></div>
+        ` : `<button class="btn-secondary pgdanger" id="pgClearBtn" ${any?'':'disabled'}>清除戰績</button>`}
+      </div>
+    </div>`;
+}
+function pgRenderOverlay(){
+  try{
+    const el = document.getElementById("pgOverlay");
+    if(!el) return;
+    el.innerHTML = pgOverlay==="display" ? pgDisplayModalHtml() : pgOverlay==="stats" ? pgStatsModalHtml() : "";
+    if(!pgOverlay) return;
+    const $ = id => document.getElementById(id);
+    $("pgClose").onclick = pgCloseOverlay;
+    $("pgBackdrop").onclick = e=>{ if(e.target.id==="pgBackdrop") pgCloseOverlay(); };
+    if(pgOverlay==="display"){
+      $("pgDone").onclick = pgCloseOverlay;
+      $("pgSndToggle").onclick = ()=>{ setSoundEnabled(!soundEnabled); if(soundEnabled) cue("tick"); pgRenderOverlay(); $("pgSndToggle").focus(); };
+      $("pgCbToggle").onclick = ()=>{ pgSetColorblind(!pgSettings.cb); pgRenderOverlay(); $("pgCbToggle").focus(); };
+      document.querySelectorAll("[data-pgfs]").forEach(b=> b.onclick = ()=>{ const n = parseInt(b.dataset.pgfs,10); pgSetFontScale(n); pgRenderOverlay(); const nb = document.querySelector(`[data-pgfs="${n}"]`); if(nb) nb.focus(); });
+    } else {
+      const cb = $("pgClearBtn"); if(cb) cb.onclick = ()=>{ pgStatsAskClear = true; pgRenderOverlay(); const y = $("pgClearNo"); if(y) y.focus(); };
+      const no = $("pgClearNo"); if(no) no.onclick = ()=>{ pgStatsAskClear = false; pgRenderOverlay(); };
+      const yes = $("pgClearYes"); if(yes) yes.onclick = ()=>{ pgStatsClear(); pgStatsAskClear = false; pgRenderOverlay(); };
+    }
+  }catch(e){}
+}
+function pgOpenOverlay(kind){
+  try{ pgFocusBack = document.activeElement; }catch(e){}
+  pgOverlay = kind; pgStatsAskClear = false;
+  pgRenderOverlay();
+  try{ document.getElementById("pgClose").focus(); }catch(e){}
+}
+function pgCloseOverlay(){
+  pgOverlay = null; pgStatsAskClear = false;
+  pgRenderOverlay();
+  try{ if(pgFocusBack && pgFocusBack.focus && document.contains(pgFocusBack)) pgFocusBack.focus(); }catch(e){}
+  pgFocusBack = null;
+}
+
+// 包在原本的 render() 外面：先做「狀態轉換」的事（提示音、戰績、第一次教學），再畫，最後補無障礙屬性。
+function render(){
+  pgBeforeRender();
+  renderScreen();
+  pgAfterRender();
+}
+function pgBeforeRender(){
+  try{
+    if(!helpModalOpen) pgHelpAuto = false;
+    if(!identity || !roomData || !roomData.exists) return;
+    const code = identity.code, gt = roomData.gameType || "telepathy";
+    pgPlayCues(pgCueTick(roomData, playersData, identity.playerId, code));
+    if(roomData.phase==="ended") pgRecordGame(roomData, playersData, identity.playerId, code);
+    if(pgCountdownTick(roomData, identity.playerId, votesData, remainingSeconds())) cue("tick");
+    // 第一次進到這個遊戲的大廳：自動打開玩法說明一次（記起來之後不再自動跳出；手動 ❓ 仍可開）
+    if(roomData.phase==="lobby" && !pgHelpSeen(gt)){
+      pgMarkHelpSeen(gt);
+      if(!helpModalOpen){ helpModalOpen = true; pgHelpAuto = true; }
+    }
+  }catch(e){}
+}
+function pgAfterRender(){
+  try{
+    // 玩法說明：補上「我知道了」收尾按鈕（自動跳出的那次文字是「我知道了，不再自動顯示」）
+    if(helpModalOpen){
+      const sheet = document.querySelector("#helpBackdrop .modalsheet");
+      if(sheet && !sheet.querySelector(".helpgot")){
+        const b = document.createElement("button");
+        b.className = "btn-primary helpgot";
+        b.textContent = pgHelpAuto ? "我知道了，不再自動顯示" : "我知道了";
+        b.onclick = ()=>{ helpModalOpen = false; pgHelpAuto = false; render(); };
+        sheet.appendChild(b);
+      }
+    }
+    // 無障礙：彈窗角色、頭像按鈕狀態
+    document.querySelectorAll("#app .modalsheet").forEach(m=>{ m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); });
+    document.querySelectorAll("#app .modalclose").forEach(b=>{ if(!b.getAttribute("aria-label")) b.setAttribute("aria-label","關閉"); });
+    document.querySelectorAll("#app .tab").forEach(t=>{ t.setAttribute("role","button"); t.setAttribute("tabindex","0"); });
+  }catch(e){}
+}
+function pgWireChrome(){
+  try{
+    pgApplyDisplay(); pgSyncControls(); pgInstallAudioUnlock();
+    const s = document.getElementById("pgSndBtn");
+    if(s) s.onclick = ()=>{ setSoundEnabled(!soundEnabled); if(soundEnabled) cue("tick"); try{ render(); }catch(e){} };
+    const d = document.getElementById("pgDispBtn");
+    if(d) d.onclick = ()=> pgOpenOverlay("display");
+    document.addEventListener("keydown", e=>{
+      if(e.key==="Escape"){
+        if(pgOverlay){ pgCloseOverlay(); return; }
+        if(helpModalOpen){ helpModalOpen = false; pgHelpAuto = false; render(); }
+        return;
+      }
+      // role="button" 的非 <button> 元素（分頁標籤、機密代號的牌）：Enter / 空白鍵等同點擊
+      const t = e.target;
+      if((e.key==="Enter" || e.key===" ") && t && t.getAttribute && t.getAttribute("role")==="button" && t.tagName!=="BUTTON"){ e.preventDefault(); t.click(); }
+    });
+  }catch(e){}
+}
 function remainingSeconds(){
   if(!roomData || !roomData.roundEndAt) return 0;
   return Math.max(0, (roomData.roundEndAt - Date.now())/1000);
@@ -2287,6 +3091,7 @@ function startRevealAnim(round){
   // 會在前一張還沒轉完時就疊上新的翻轉，看起來像在「搶拍」、一閃而過。
   // 這裡把起始停頓跟每張間隔都拉長到比動畫時間長一點，讓每張牌都轉完才翻下一張，
   // 同時也讓答題畫面切過來後有個喘息的瞬間，不會覺得畫面在硬切。
+  if(pgReducedMotion()){ revealStage = LETTERS.length; return; }   // 減少動態：不要一張一張翻，直接全部攤開
   const startDelay = 700;
   const stepDelay = 650;
   LETTERS.forEach((_,i)=>{
@@ -2353,7 +3158,7 @@ function renderReveal(isHost){
             <div class="flipcard-inner ${revealed?'flipped':''}">
               <div class="flipface front">${letter}</div>
               <div class="flipface back ${isStruck?'struck':''} ${(doneFlipping&&isStruck)?'struck-blink':''}">
-                <div class="tallyhead"><span class="opt">${letter}．${esc(opt)}</span><span class="cnt">${ids.length} 人</span></div>
+                <div class="tallyhead"><span class="opt">${letter}．${esc(opt)}</span><span class="cnt">${ids.length} 人${isStruck?' · ⚠ 扣分':''}</span></div>
                 <div class="tallynames">${chips || '沒有人選'}</div>
               </div>
             </div>
@@ -2543,6 +3348,7 @@ function startMLRevealAnim(round){
   clearRevealTimers();
   mlRevealAnimRound = round;
   mlRevealReady = false;
+  if(pgReducedMotion()){ mlRevealReady = true; return; }   // 減少動態：省略「揭曉中…」的停頓
   // 跟心電感應一樣，答題畫面切到結算畫面之間留一點停頓，不會覺得畫面在硬切。
   revealTimers.push(setTimeout(()=>{ mlRevealReady = true; render(); }, 700));
 }
@@ -2554,9 +3360,7 @@ function renderMLReveal(isHost){
   if(mlRevealAnimRound !== last.round) startMLRevealAnim(last.round);
   if(mlRevealReady && mlSoundedRound !== last.round){
     mlSoundedRound = last.round;
-    beep(700,90,"sine");
-    setTimeout(()=>beep(900,110,"sine"), 90);
-    vibrate(15);
+    cue("reveal");
   }
   const totalRounds = (roomData.settings && roomData.settings.totalRounds) || 8;
   const isLastRound = last.round >= totalRounds;
@@ -2594,7 +3398,7 @@ function renderMLReveal(isHost){
                 ${ranking.map((id,i)=>{
                   const pp = playersData.find(x=>x.id===id);
                   const match = baseRanking[i]===id;
-                  return `<span class="mlrankchip ${match?'match':''}">${pp?avatarOf(pp):'🙂'} ${esc(pp?pp.name:'?')}</span>`;
+                  return `<span class="mlrankchip ${match?'match':''}">${match?'✓ ':''}${pp?avatarOf(pp):'🙂'} ${esc(pp?pp.name:'?')}</span>`;
                 }).join("")}
               </div>` : `<p class="helper" style="margin:4px 0 0;">未完成排序</p>`}
             </div>`;
@@ -2740,6 +3544,10 @@ function playDrawSlotAnim(subject, place, action){
   const elP = document.getElementById("slotPlace");
   const elA = document.getElementById("slotAction");
   if(!elS || !elP || !elA){ drawPromptAnimating = false; return; }
+  if(pgReducedMotion()){   // 減少動態：不跑拉霸，直接顯示抽到的題目
+    elS.textContent = subject; elP.textContent = place; elA.textContent = action;
+    return;
+  }
   drawPromptAnimating = true;
   const reels = [
     {el: elS, pool: DRAW_SUBJECTS, final: subject, stopAt: 650},
@@ -3538,7 +4346,7 @@ function renderCnHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -3659,7 +4467,10 @@ function renderCnGame(me, isHost){
     if(tappable) cls.push("tap");
     if(cnSel===i) cls.push("sel");
     const mark = (!c.revealed && showAll && c.color==="assassin") ? `<span class="cnmark">☠</span>` : ``;
-    return `<div class="${cls.join(" ")}" data-cn="${i}">${esc(c.word)}${mark}</div>`;
+    const known = c.revealed || showAll;
+    const glyph = known && CN_GLYPH[c.color] ? `<span class="cnglyph" aria-hidden="true">${CN_GLYPH[c.color]}</span>` : ``;
+    const aria = esc(c.word) + (known ? `（${c.revealed?'已翻開，':''}${CN_COLOR_NAME[c.color]||''}）` : ``);
+    return `<div class="${cls.join(" ")}" data-cn="${i}" aria-label="${aria}"${tappable?' role="button" tabindex="0"':''}>${glyph}${esc(c.word)}${mark}</div>`;
   }).join("");
 
   let actionHtml = "";
@@ -3760,7 +4571,7 @@ function renderJoHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -3796,7 +4607,7 @@ function renderJoSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         <div style="padding-top:4px;">
           <span style="font-size:14px; font-weight:700; display:block; margin-bottom:10px;">牌數（一局要玩幾張牌）</span>
@@ -4281,6 +5092,7 @@ function leaveToHome(){
   witchPoisonPickOpen = false;
   unsubRoom=unsubPlayers=unsubVotes=unsubStrokes=null; roomRef=playersCol=votesCol=strokesCol=null; roomData=null; playersData=[]; votesData=[];
   identity = null; saveIdentity(null);
+  pgResetCue();
   render();
 }
 
@@ -4500,7 +5312,7 @@ async function writeOwnField(path, value, expectPhase){
 
 // 小提示（沒送出成功時叫使用者再按一次）。不依賴畫面重繪。
 let toastTimer = null;
-function showToast(msg){
+function showToast(msg, ms){
   try{
     let el = document.getElementById("syncToast");
     if(!el){
@@ -4509,7 +5321,7 @@ function showToast(msg){
     }
     el.textContent = msg; el.style.opacity = "1";
     if(toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>{ try{ el.style.opacity = "0"; }catch(e){} }, 2800);
+    toastTimer = setTimeout(()=>{ try{ el.style.opacity = "0"; }catch(e){} }, ms || 2800);
   }catch(e){}
 }
 const MSG_RETRY = "沒有送出成功，請再按一次";
@@ -5480,7 +6292,7 @@ async function doCnSubmitClue(){
         clueLog: log, lastActivityAt: Date.now()
       });
       cnClueDraft = ""; cnClueError = "";
-      beep(520,70,"sine"); vibrate(15);
+      cue("tick");
     });
     if(!ok) cnClueError = "目前有人正在操作，請再按一次";
   }catch(e){ cnClueError = "目前有人正在操作，請再按一次"; }
@@ -5508,7 +6320,7 @@ async function doCnGuess(){
         winner: res.winner, winReason: res.winReason, lastActivityAt: Date.now()
       });
       cnSel = null;
-      if(res.outcome==="own"){ beep(660,90,"sine"); vibrate(20); } else { beep(180,220,"sawtooth"); vibrate([40,40,40]); }
+      cue(res.outcome==="own" ? "success" : "fail");
     });
     if(!ok) showToast(MSG_RETRY);   // 選取的牌保留著，按「確定翻開」再試一次就好
   }catch(e){ showToast(MSG_RETRY); }
@@ -5868,10 +6680,45 @@ async function ensureContentPatchV5(d){
   }catch(e){ reportSeedError("題庫修正失敗（ensureContentPatchV5）", e); }
 }
 
+// 內建題庫擴充（V6）：QUESTIONS / TARGETED_QUESTIONS 只在「尾端」追加新題。
+// 已經玩過的資料庫早就有 V5 之前的 seed_0~seed_100 與 seedv2_0~seedv2_19，所以這裡只補第 SEED_V5_Q_COUNT / SEED_V5_T_COUNT 筆以後的題目，
+// 用同樣的決定性文件 id（seed_<索引> / seedv2_<索引>）寫入：重跑、多人同時跑都是覆寫同一份文件，不會產生重複題。
+// 之後再擴充內建題目，只要繼續在陣列尾端追加，並複製這個函式改成 V7（基準改成 V6 之後的筆數）、換新的 marker 即可。
+// 注意：不可以在 QUESTIONS / TARGETED_QUESTIONS 中間插入或重排，否則索引（也就是文件 id）會對不上。
+const SEED_V5_Q_COUNT = 101, SEED_V5_T_COUNT = 20;
+async function ensureContentPatchV6(d){
+  try{
+    const marker = d.doc("meta/questionsContentPatchV6");
+    const snap = await marker.get();
+    if(snap.exists) return;
+    const col = d.collection("customQuestions");
+    for(let i=SEED_V5_Q_COUNT;i<QUESTIONS.length;i++){
+      const item = QUESTIONS[i];
+      try{
+        await col.doc("seed_"+i).set({
+          q: item[0], options: item[1], category: item[2]||"other",
+          builtin: true, targeted: true, createdAt: 1788857016000 + i
+        });
+      }catch(e){ reportSeedError("題庫寫入失敗（seed_"+i+"）", e); }
+    }
+    for(let i=SEED_V5_T_COUNT;i<TARGETED_QUESTIONS.length;i++){
+      const item = TARGETED_QUESTIONS[i];
+      try{
+        await col.doc("seedv2_"+i).set({
+          q: item[0], options: item[1], category: item[2]||"aboutyou",
+          builtin: true, targeted: true, createdAt: 1788857017000 + i
+        });
+      }catch(e){ reportSeedError("題庫寫入失敗（seedv2_"+i+"）", e); }
+    }
+    await marker.set({done:true, at: Date.now()});
+  }catch(e){ reportSeedError("題庫修正失敗（ensureContentPatchV6）", e); }
+}
+
 // ---------- boot ----------
 (async ()=>{
   const vLine = document.getElementById("versionLine");
   if(vLine) vLine.textContent = `${APP_VERSION} · 更新於 ${APP_UPDATED}`;
+  pgWireChrome();
   render();
   const d = await ensureDb();
   if(d){
@@ -5887,7 +6734,8 @@ async function ensureContentPatchV5(d){
     });
     ensureSeeded(d);
     ensureSeededV2(d);
-    ensureContentPatchV5(d);
+    // V5 先跑完再跑 V6（V5 沒做完就沒有 marker，下次啟動會重跑；V6 只補新增的題目，兩者互不衝突）。
+    ensureContentPatchV5(d).then(()=>ensureContentPatchV6(d));
   }
   if(identity){
     if(!db){
@@ -5914,6 +6762,25 @@ document.addEventListener("visibilitychange", ()=>{
 });
 window.addEventListener("focus", ()=>{ reconnectIfNeeded(); sendHeartbeat(true); });
 window.addEventListener("online", ()=>{ reconnectIfNeeded(); sendHeartbeat(true); });
+
+// ---------- PWA：註冊 service worker（只有獨立版；只在 https 或 localhost 才註冊）----------
+// 新版接手後（controllerchange）提醒使用者重新整理；第一次安裝（原本沒有 controller）不提醒。
+function pgRegisterServiceWorker(){
+  try{
+    if(!("serviceWorker" in navigator)) return;
+    const host = location.hostname;
+    if(!(location.protocol==="https:" || host==="localhost" || host==="127.0.0.1" || host==="[::1]")) return;
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+      if(hadController) showToast("有新版本，重新整理即可更新", 8000);
+      hadController = true;
+    });
+    window.addEventListener("load", ()=>{
+      try{ navigator.serviceWorker.register("./sw.js", {scope:"./"}).catch(()=>{}); }catch(e){}
+    });
+  }catch(e){}
+}
+pgRegisterServiceWorker();
 </script>
 </body>
 </html>

@@ -73,10 +73,45 @@ async function ensureContentPatchV5(d){
   }catch(e){ reportSeedError("題庫修正失敗（ensureContentPatchV5）", e); }
 }
 
+// 內建題庫擴充（V6）：QUESTIONS / TARGETED_QUESTIONS 只在「尾端」追加新題。
+// 已經玩過的資料庫早就有 V5 之前的 seed_0~seed_100 與 seedv2_0~seedv2_19，所以這裡只補第 SEED_V5_Q_COUNT / SEED_V5_T_COUNT 筆以後的題目，
+// 用同樣的決定性文件 id（seed_<索引> / seedv2_<索引>）寫入：重跑、多人同時跑都是覆寫同一份文件，不會產生重複題。
+// 之後再擴充內建題目，只要繼續在陣列尾端追加，並複製這個函式改成 V7（基準改成 V6 之後的筆數）、換新的 marker 即可。
+// 注意：不可以在 QUESTIONS / TARGETED_QUESTIONS 中間插入或重排，否則索引（也就是文件 id）會對不上。
+const SEED_V5_Q_COUNT = 101, SEED_V5_T_COUNT = 20;
+async function ensureContentPatchV6(d){
+  try{
+    const marker = d.doc("meta/questionsContentPatchV6");
+    const snap = await marker.get();
+    if(snap.exists) return;
+    const col = d.collection("customQuestions");
+    for(let i=SEED_V5_Q_COUNT;i<QUESTIONS.length;i++){
+      const item = QUESTIONS[i];
+      try{
+        await col.doc("seed_"+i).set({
+          q: item[0], options: item[1], category: item[2]||"other",
+          builtin: true, targeted: true, createdAt: 1788857016000 + i
+        });
+      }catch(e){ reportSeedError("題庫寫入失敗（seed_"+i+"）", e); }
+    }
+    for(let i=SEED_V5_T_COUNT;i<TARGETED_QUESTIONS.length;i++){
+      const item = TARGETED_QUESTIONS[i];
+      try{
+        await col.doc("seedv2_"+i).set({
+          q: item[0], options: item[1], category: item[2]||"aboutyou",
+          builtin: true, targeted: true, createdAt: 1788857017000 + i
+        });
+      }catch(e){ reportSeedError("題庫寫入失敗（seedv2_"+i+"）", e); }
+    }
+    await marker.set({done:true, at: Date.now()});
+  }catch(e){ reportSeedError("題庫修正失敗（ensureContentPatchV6）", e); }
+}
+
 // ---------- boot ----------
 (async ()=>{
   const vLine = document.getElementById("versionLine");
   if(vLine) vLine.textContent = `${APP_VERSION} · 更新於 ${APP_UPDATED}`;
+  pgWireChrome();
   render();
   const d = await ensureDb();
   if(d){
@@ -94,7 +129,8 @@ async function ensureContentPatchV5(d){
     });
     ensureSeeded(d);
     ensureSeededV2(d);
-    ensureContentPatchV5(d);
+    // V5 先跑完再跑 V6（V5 沒做完就沒有 marker，下次啟動會重跑；V6 只補新增的題目，兩者互不衝突）。
+    ensureContentPatchV5(d).then(()=>ensureContentPatchV6(d));
   }
   if(identity){
     if(!db){
@@ -121,3 +157,24 @@ document.addEventListener("visibilitychange", ()=>{
 });
 window.addEventListener("focus", ()=>{ reconnectIfNeeded(); sendHeartbeat(true); });
 window.addEventListener("online", ()=>{ reconnectIfNeeded(); sendHeartbeat(true); });
+
+//#if standalone
+// ---------- PWA：註冊 service worker（只有獨立版；只在 https 或 localhost 才註冊）----------
+// 新版接手後（controllerchange）提醒使用者重新整理；第一次安裝（原本沒有 controller）不提醒。
+function pgRegisterServiceWorker(){
+  try{
+    if(!("serviceWorker" in navigator)) return;
+    const host = location.hostname;
+    if(!(location.protocol==="https:" || host==="localhost" || host==="127.0.0.1" || host==="[::1]")) return;
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+      if(hadController) showToast("有新版本，重新整理即可更新", 8000);
+      hadController = true;
+    });
+    window.addEventListener("load", ()=>{
+      try{ navigator.serviceWorker.register("./sw.js", {scope:"./"}).catch(()=>{}); }catch(e){}
+    });
+  }catch(e){}
+}
+pgRegisterServiceWorker();
+//#endif

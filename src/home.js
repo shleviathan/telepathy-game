@@ -1,4 +1,4 @@
-function render(){
+function renderScreen(){
   if(mlDragging || drawingInProgress || drawPromptAnimating) return; // 拖曳排序中/畫畫中/抽題拉霸動畫中先不要整頁重畫，不然手指動作或動畫會被背景更新打斷、跳掉
   if(!identity){ renderHome(); return; }
   if(!roomData){ renderConnecting(); return; }
@@ -143,10 +143,14 @@ function renderHome(){
       ` : ``}
       <label>選一個代表你的頭像</label>
       <div class="avatargrid">
-        ${AVATARS.map(a=>`<button class="avatarbtn ${homeAvatar===a?'on':''}" data-avatar="${a}">${a}</button>`).join("")}
+        ${AVATARS.map(a=>`<button class="avatarbtn ${homeAvatar===a?'on':''}" data-avatar="${a}" aria-label="選擇頭像 ${a}" aria-pressed="${homeAvatar===a}">${a}</button>`).join("")}
       </div>
       <div class="error">${esc(joinError)}</div>
       <button class="btn-primary" id="goBtn">${homeTab==='create' ? '建立房間' : '加入房間'}</button>
+    </div>
+    <div class="iconrow">
+      <button class="iconbtn" id="pgOpenDisplay"><span class="iconbtn-emoji" aria-hidden="true">⚙️</span><span>顯示設定</span></button>
+      <button class="iconbtn" id="pgOpenStats"><span class="iconbtn-emoji" aria-hidden="true">📊</span><span>我的戰績</span></button>
     </div>
     <p class="helper">${homeTab==='create'
       ? (homeGameType==='mostlikely' ? '2 人以上就能玩，猜猜大家心裡最可能是誰。'
@@ -170,6 +174,8 @@ function renderHome(){
   if(codeEl) codeEl.oninput = e=>homeCode = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4);
   document.querySelectorAll("[data-avatar]").forEach(b=> b.onclick = ()=>{ homeAvatar = b.dataset.avatar; render(); });
   document.getElementById("goBtn").onclick = ()=> homeTab==='create' ? doCreate() : doJoin();
+  document.getElementById("pgOpenDisplay").onclick = ()=> pgOpenOverlay("display");
+  document.getElementById("pgOpenStats").onclick = ()=> pgOpenOverlay("stats");
 }
 
 function renderConnecting(){ app.innerHTML = `<div class="card" style="text-align:center; color:var(--muted);"><span class="spin"></span>連線中…</div>`; }
@@ -240,7 +246,7 @@ function renderLobby(isHost){
       </ul>
       ${lobbyAvatarPickOpen ? `
         <div class="avatargrid" style="margin-top:12px;">
-          ${AVATARS.map(a=>`<button class="avatarbtn ${(playersData.find(p=>p.id===identity.playerId)||{}).avatar===a?'on':''}" data-avatar2="${a}">${a}</button>`).join("")}
+          ${AVATARS.map(a=>`<button class="avatarbtn ${(playersData.find(p=>p.id===identity.playerId)||{}).avatar===a?'on':''}" data-avatar2="${a}" aria-label="換成頭像 ${a}">${a}</button>`).join("")}
         </div>
       ` : ``}
       ${isCodenames ? renderCnLobbyTeams(isHost) : ``}
@@ -279,7 +285,7 @@ function renderLobby(isHost){
   document.getElementById("readyBtn").onclick = toggleReady;
   document.getElementById("toggleSoundBtn").onclick = ()=>{
     setSoundEnabled(!soundEnabled);
-    if(soundEnabled) beep(660,90,"sine");
+    if(soundEnabled) cue("tick");
     render();
   };
   if(isHost){
@@ -318,7 +324,7 @@ function renderHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -354,19 +360,19 @@ function renderSettingsModal(isHost, settings, enabledCats, mode){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         ${isHost ? `
           <div class="settingsrow" style="border-top:none;">
             <span>思考時間</span>
             <div class="stepper">
-              <button id="durMinus">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus">+</button>
+              <button id="durMinus" aria-label="減少時間">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus" aria-label="增加時間">+</button>
             </div>
           </div>
           <div class="settingsrow">
             <span>扣幾分算輸</span>
             <div class="stepper">
-              <button id="tgtMinus">−</button><span class="n">${settings.targetStrikes} 分</span><button id="tgtPlus">+</button>
+              <button id="tgtMinus" aria-label="減少分數上限">−</button><span class="n">${settings.targetStrikes} 分</span><button id="tgtPlus" aria-label="增加分數上限">+</button>
             </div>
           </div>
           <div style="padding-top:12px; border-top:1px solid var(--line); margin-top:2px;">
@@ -436,7 +442,7 @@ function renderMLHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -472,19 +478,19 @@ function renderMLSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         ${isHost ? `
           <div class="settingsrow" style="border-top:none;">
             <span>排序時間</span>
             <div class="stepper">
-              <button id="durMinus">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus">+</button>
+              <button id="durMinus" aria-label="減少時間">−</button><span class="n">${settings.duration} 秒</span><button id="durPlus" aria-label="增加時間">+</button>
             </div>
           </div>
           <div class="settingsrow">
             <span>玩幾題</span>
             <div class="stepper">
-              <button id="roundsMinus">−</button><span class="n">${totalRounds} 題</span><button id="roundsPlus">+</button>
+              <button id="roundsMinus" aria-label="減少回合數">−</button><span class="n">${totalRounds} 題</span><button id="roundsPlus" aria-label="增加回合數">+</button>
             </div>
           </div>
         ` : `
@@ -517,7 +523,7 @@ function renderDrawHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -549,19 +555,19 @@ function renderDrawSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         ${isHost ? `
           <div class="settingsrow" style="border-top:none;">
             <span>每人畫幾秒</span>
             <div class="stepper">
-              <button id="durMinus">−</button><span class="n">${settings.turnSeconds} 秒</span><button id="durPlus">+</button>
+              <button id="durMinus" aria-label="減少時間">−</button><span class="n">${settings.turnSeconds} 秒</span><button id="durPlus" aria-label="增加時間">+</button>
             </div>
           </div>
           <div class="settingsrow">
             <span>玩幾輪</span>
             <div class="stepper">
-              <button id="roundsMinus">−</button><span class="n">${totalRounds} 輪</span><button id="roundsPlus">+</button>
+              <button id="roundsMinus" aria-label="減少回合數">−</button><span class="n">${totalRounds} 輪</span><button id="roundsPlus" aria-label="增加回合數">+</button>
             </div>
           </div>
         ` : `
@@ -594,7 +600,7 @@ function renderWerewolfHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -637,7 +643,7 @@ function renderWerewolfSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         <div class="settingsrow" style="border-top:none;">
           <span>狼人人數（依人數自動算）</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${wolfCount} 人</span>
@@ -672,7 +678,7 @@ function renderAvalonHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -715,7 +721,7 @@ function renderAvalonSettingsModal(isHost, settings){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>⚙️ 遊戲設定</h2>
-          <button class="modalclose" id="settingsClose">✕</button>
+          <button class="modalclose" id="settingsClose" aria-label="關閉">✕</button>
         </div>
         <div class="settingsrow" style="border-top:none;">
           <span>陣營人數（依人數自動算）</span><span class="n" style="font-family:'JetBrains Mono',monospace;">${counts ? `好 ${counts.good} / 壞 ${counts.evil}` : '需 5～10 人'}</span>
@@ -750,7 +756,7 @@ function renderBankModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>📚 題庫</h2>
-          <button class="modalclose" id="bankClose">✕</button>
+          <button class="modalclose" id="bankClose" aria-label="關閉">✕</button>
         </div>
         ${renderQuestionBank()}
       </div>

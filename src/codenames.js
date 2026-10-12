@@ -2,6 +2,9 @@
 // ---------- 機密代號：純邏輯 ----------
 const CN_TEAM_LABEL = {red:"紅隊", blue:"藍隊"};
 const CN_TEAM_EMOJI = {red:"🔴", blue:"🔵"};
+// 色盲友善：每種顏色另外配一個形狀記號（紅 ▲、藍 ●、刺客 ✕、平民不加），開啟「色盲友善模式」時才顯示在牌角落。
+const CN_GLYPH = {red:"▲", blue:"●", assassin:"✕", neutral:""};
+const CN_COLOR_NAME = {red:"紅隊特工", blue:"藍隊特工", neutral:"平民", assassin:"刺客"};
 function cnOther(t){ return t==="red" ? "blue" : "red"; }
 function cnShuffle(arr){
   const a = arr.slice();
@@ -120,7 +123,32 @@ const JO_WORDS = [
   "走廊","大門","馬桶","浴缸","蓮蓬頭","洗衣機","冷氣","電風扇","微波爐","烤箱","吸塵器","掃把",
   "書本","報紙","雜誌","信封","郵票","鈔票","硬幣","護照","身分證","網路","遊戲","簡訊",
   "照片","影片","音樂","歌曲","笑話","故事","謎語","電話","密碼","網站","訊息","直播",
-  "廣告","新聞","天氣","麵粉","砂糖","鹽巴","醬油","胡椒"
+  "廣告","新聞","天氣","麵粉","砂糖","鹽巴","醬油","胡椒",
+  "鹽酥雞","雞排","滷肉飯","牛肉麵","蚵仔煎","小籠包","蛋餅","油條","飯糰","剉冰","麻糬","湯圓",
+  "甜甜圈","鬆餅","布丁","三明治","熱狗","泡麵","炒飯","水餃","皮蛋","茶葉蛋","海苔","烏龍茶",
+  "汽水","爆米花","口香糖","棒棒糖","吐司","南瓜","番茄","柚子","荔枝","鯨魚","水母","海星",
+  "海龜","螃蟹","龍蝦","河豚","金魚","無尾熊","樹懶","鴕鳥","火烈鳥","天鵝","鴨子","綿羊",
+  "猩猩","河馬","犀牛","倉鼠","蝸牛","蜻蜓","螳螂","螢火蟲","變色龍","獨角獸","美人魚","電鍋",
+  "吹風機","遙控器","手電筒","打火機","鬧鐘","行動電源","投影機","印表機","毛毯","地毯","洗髮精","牙膏",
+  "衛生紙","拖鞋","球鞋","高跟鞋","皮鞋","襯衫","領帶","西裝","睡衣","行李箱","安全帽","菜刀",
+  "砧板","筷子","湯匙","叉子","盤子","杯子","茶壺","保溫瓶","原子筆","鋼筆","膠水","膠帶",
+  "課本","字典","黑板","粉筆","書包","梯子","油漆","高鐵","獨木舟","降落傘","太空船","摩天輪",
+  "雲霄飛車","旋轉木馬","溜滑梯","盪鞦韆","蹺蹺板","方向盤","紅綠燈","加油站","停車場","高速公路","便利商店","夜市",
+  "百貨公司","書店","診所","健身房","操場","梅雨","打雷","極光","流星","日出","日落","銀河",
+  "星座","大海","溫泉","懸崖","叢林","冰山","洞穴","山谷","稻田","櫻花","向日葵","玫瑰",
+  "蘭花","仙人掌","竹子","親情","智慧","緣分","默契","浪漫","幽默","溫柔","耐心","熱情",
+  "誠實","感謝","驕傲","害羞","尷尬","好奇","興奮","做夢","賴床","遲到","放假","排球",
+  "高爾夫","躲避球","馬拉松","跳水","跳繩","拔河","賽跑","跆拳道","擊劍","攀岩","划船","野餐",
+  "烤肉","大提琴","長笛","薩克斯風","口琴","烏克麗麗","電子琴","樂團","演唱會","街舞","布袋戲","歌仔戲",
+  "馬戲團","動畫","卡通","漫畫","小說","童話","神話","日記","劇本","紀錄片","大富翁","樂高",
+  "泰迪熊","扮家家酒","捉迷藏","導演","工程師","設計師","建築師","郵差","外送員","理髮師","攝影師","教練",
+  "運動員","太空人","科學家","探險家","導遊","空姐","機長","船長","王子","女巫","殭屍","吸血鬼",
+  "狼人","木乃伊","精靈","外公","外婆","嬰兒","老人","情侶","觀眾","對手","脖子","酒窩",
+  "雀斑","舞龍舞獅","端午節","龍舟","中秋節","冬至","聖誕樹","萬聖節","母親節","兒童節","跨年","運動會",
+  "旅行","度假","機票","飯店","帳篷","自拍","紀念品","伴手禮","貼圖","薪水","彩券","發票",
+  "信用卡","悠遊卡","撲滿","皇冠","魔杖","寶箱","宮殿","金字塔","長城","鐵塔","古堡","廢墟",
+  "翡翠","沙子","泥土","書法","暴龍","國旗","號角","輪椅","拐杖","打嗝","打噴嚏","感冒",
+  "近視","握手","擁抱","微笑","鞠躬","打哈欠"
 ];
 
 // 看門狗 / 手動安全閥共用的判斷（純函式）。
@@ -162,7 +190,7 @@ function renderCnHelpModal(){
       <div class="modalsheet">
         <div class="modalhead">
           <h2>❓ 玩法說明</h2>
-          <button class="modalclose" id="helpClose">✕</button>
+          <button class="modalclose" id="helpClose" aria-label="關閉">✕</button>
         </div>
         <div class="card" style="margin-bottom:10px;">
           <div class="helptitle" style="color:var(--safe);">目標</div>
@@ -283,7 +311,10 @@ function renderCnGame(me, isHost){
     if(tappable) cls.push("tap");
     if(cnSel===i) cls.push("sel");
     const mark = (!c.revealed && showAll && c.color==="assassin") ? `<span class="cnmark">☠</span>` : ``;
-    return `<div class="${cls.join(" ")}" data-cn="${i}">${esc(c.word)}${mark}</div>`;
+    const known = c.revealed || showAll;
+    const glyph = known && CN_GLYPH[c.color] ? `<span class="cnglyph" aria-hidden="true">${CN_GLYPH[c.color]}</span>` : ``;
+    const aria = esc(c.word) + (known ? `（${c.revealed?'已翻開，':''}${CN_COLOR_NAME[c.color]||''}）` : ``);
+    return `<div class="${cls.join(" ")}" data-cn="${i}" aria-label="${aria}"${tappable?' role="button" tabindex="0"':''}>${glyph}${esc(c.word)}${mark}</div>`;
   }).join("");
 
   let actionHtml = "";
@@ -453,7 +484,7 @@ async function doCnSubmitClue(){
         clueLog: log, lastActivityAt: Date.now()
       });
       cnClueDraft = ""; cnClueError = "";
-      beep(520,70,"sine"); vibrate(15);
+      cue("tick");
     });
     if(!ok) cnClueError = "目前有人正在操作，請再按一次";
   }catch(e){ cnClueError = "目前有人正在操作，請再按一次"; }
@@ -481,7 +512,7 @@ async function doCnGuess(){
         winner: res.winner, winReason: res.winReason, lastActivityAt: Date.now()
       });
       cnSel = null;
-      if(res.outcome==="own"){ beep(660,90,"sine"); vibrate(20); } else { beep(180,220,"sawtooth"); vibrate([40,40,40]); }
+      cue(res.outcome==="own" ? "success" : "fail");
     });
     if(!ok) showToast(MSG_RETRY);   // 選取的牌保留著，按「確定翻開」再試一次就好
   }catch(e){ showToast(MSG_RETRY); }
